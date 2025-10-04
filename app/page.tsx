@@ -1,101 +1,191 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card } from "@/components/ui/card"
+
+const codeSnippets = [
+  {
+    id: 1,
+    title: "Calculator Class",
+    difficulty: "Easy",
+    language: "Java",
+    code: `public class Calculator {
+    public int add(int a, int b) {
+        return a + b;
+    }
+    
+    public int subtract(int a, int b) {
+        return a - b;
+    }
+    
+    public int multiply(int a, int b) {
+        return a * b;
+    }
+    
+    public double divide(int a, int b) {
+        if (b == 0) {
+            throw new IllegalArgumentException("Cannot divide by zero");
+        }
+        return (double) a / b;
+    }
+}`,
+  },
+  {
+    id: 2,
+    title: "String Validator",
+    difficulty: "Medium",
+    language: "Python",
+    code: `class StringValidator:
+    def is_valid_email(self, email):
+        """Check if email format is valid"""
+        if not email or '@' not in email:
+            return False
+        parts = email.split('@')
+        if len(parts) != 2:
+            return False
+        return len(parts[0]) > 0 and len(parts[1]) > 0
+    
+    def is_palindrome(self, text):
+        """Check if text is a palindrome"""
+        cleaned = ''.join(c.lower() for c in text if c.isalnum())
+        return cleaned == cleaned[::-1]
+    
+    def count_vowels(self, text):
+        """Count vowels in text"""
+        vowels = 'aeiouAEIOU'
+        return sum(1 for char in text if char in vowels)`,
+  },
+  {
+    id: 3,
+    title: "Binary Search Tree",
+    difficulty: "Hard",
+    language: "Java",
+    code: `public class BinarySearchTree {
+    private Node root;
+    
+    private class Node {
+        int value;
+        Node left, right;
+        
+        Node(int value) {
+            this.value = value;
+        }
+    }
+    
+    public void insert(int value) {
+        root = insertRec(root, value);
+    }
+    
+    private Node insertRec(Node node, int value) {
+        if (node == null) {
+            return new Node(value);
+        }
+        if (value < node.value) {
+            node.left = insertRec(node.left, value);
+        } else if (value > node.value) {
+            node.right = insertRec(node.right, value);
+        }
+        return node;
+    }
+    
+    public boolean search(int value) {
+        return searchRec(root, value);
+    }
+    
+    private boolean searchRec(Node node, int value) {
+        if (node == null) return false;
+        if (node.value == value) return true;
+        return value < node.value 
+            ? searchRec(node.left, value)
+            : searchRec(node.right, value);
+    }
+}`,
+  },
+]
+
+export default function StartPage() {
+  const router = useRouter()
+  const [playerName, setPlayerName] = useState("")
+  const [challengeCode, setChallengeCode] = useState("")
+
+  const handleJoinGame = () => {
+    if (playerName && challengeCode) {
+      const codeIndex = Number.parseInt(challengeCode) % codeSnippets.length
+      const selectedSnippet = codeSnippets[codeIndex]
+
+      // Store player data in sessionStorage
+      sessionStorage.setItem(
+        "playerData",
+        JSON.stringify({
+          playerName,
+          challengeCode,
+          codeSnippet: selectedSnippet,
+        }),
+      )
+      router.push("/game")
+    }
+  }
+
+  const isReadyToStart = playerName && challengeCode
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-background pt-24 p-8 flex items-center justify-center">
+      <div className="max-w-2xl w-full space-y-12">
+        {/* Header */}
+        <div className="text-center space-y-4">
+          <h1 className="font-bebas text-8xl tracking-wider">
+            <span className="text-foreground">BATTLE OF </span>
+            <span className="text-primary">TESTS</span>
+          </h1>
+          <p className="text-muted-foreground text-lg">Compete to write the best unit tests. Quality over quantity.</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* Player Setup */}
+        <Card className="bg-card border-border p-8 space-y-6">
+          <h2 className="font-bebas text-3xl text-foreground tracking-wider">JOIN BATTLE</h2>
+
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Your Name</label>
+              <Input
+                placeholder="Enter your name..."
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                className="bg-background border-border text-foreground"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Challenge Code</label>
+              <Input
+                placeholder="Enter 4-digit code (e.g., 1234)..."
+                value={challengeCode}
+                onChange={(e) => setChallengeCode(e.target.value)}
+                className="bg-background border-border text-foreground font-mono text-lg"
+                maxLength={4}
+              />
+              <p className="text-xs text-muted-foreground">
+                Both players must enter the same code to battle the same challenge
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Start Button */}
+        <div className="text-center">
+          <Button
+            onClick={handleJoinGame}
+            disabled={!isReadyToStart}
+            size="lg"
+            className="font-bebas text-2xl tracking-wider px-12 py-6 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            JOIN BATTLE
+          </Button>
+        </div>
+      </div>
     </div>
-  );
+  )
 }
