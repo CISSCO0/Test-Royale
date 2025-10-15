@@ -2,10 +2,13 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Trophy, User, Home, Swords } from "lucide-react"
+import { Trophy, User, Home, Swords, LogIn, LogOut } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/lib/auth-context"
 
 export function Navigation() {
   const pathname = usePathname()
+  const { user, isAuthenticated, logout, isLoading } = useAuth()
 
   const links = [
     { href: "/", label: "Home", icon: Home },
@@ -13,9 +16,13 @@ export function Navigation() {
     { href: "/profile", label: "Profile", icon: User },
   ]
 
-  // Don't show navigation during active game
-  if (pathname === "/game") {
+  // Don't show navigation during active game or auth pages
+  if (pathname === "/game" || pathname === "/login" || pathname === "/register") {
     return null
+  }
+
+  const handleLogout = () => {
+    logout()
   }
 
   return (
@@ -46,6 +53,42 @@ export function Navigation() {
                 </Link>
               )
             })}
+
+            {/* Auth Section */}
+            <div className="flex items-center gap-4">
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+              ) : isAuthenticated ? (
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-muted-foreground">
+                    Welcome, <span className="text-foreground font-medium">{user?.username}</span>
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="flex items-center gap-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/login" className="flex items-center gap-2">
+                      <LogIn className="w-4 h-4" />
+                      Login
+                    </Link>
+                  </Button>
+                  <Button asChild size="sm">
+                    <Link href="/register" className="flex items-center gap-2">
+                      Register
+                    </Link>
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

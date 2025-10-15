@@ -6,8 +6,10 @@ import { Bebas_Neue } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import { Navigation } from "@/components/navigation"
-import "./globals.css"
+import { AuthProvider } from "@/lib/auth-context"
+import BackgroundEffects from "@/components/background-effects";
 
+import "./globals.css"
 const bebasNeue = Bebas_Neue({
   weight: "400",
   subsets: ["latin"],
@@ -15,9 +17,8 @@ const bebasNeue = Bebas_Neue({
 })
 
 export const metadata: Metadata = {
-  title: "Battle of Tests",
+  title: "Test Royale",
   description: "Competitive white-box testing game",
-  generator: "v0.app",
 }
 
 export default function RootLayout({
@@ -28,9 +29,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} ${bebasNeue.variable}`}>
-        <Navigation />
-        <Suspense fallback={null}>{children}</Suspense>
-        <Analytics />
+        <AuthProvider>
+          <Navigation />
+              <BackgroundEffects />   {/* <--- add it here */}
+          <Suspense fallback={null}>{children}</Suspense>
+          <Analytics />
+        </AuthProvider>
       </body>
     </html>
   )

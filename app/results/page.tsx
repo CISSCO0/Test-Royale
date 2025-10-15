@@ -221,7 +221,7 @@ export default function ResultsPage() {
       <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
         <li>You missed 2 branches (negative inputs, null input).</li>
         <li>4 of your 10 tests are redundant (covering the same path).</li>
-        <li>Your tests killed 70% of mutants compared to Pex’s 95%.</li>
+        <li>Your tests killed 70% of mutants compared to Pex's 95%.</li>
       </ul>
     </div>
   </div>

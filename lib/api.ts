@@ -1,0 +1,169 @@
+// API service layer for backend communication
+import AuthResponse from "@/interface/AuthResponse";
+import Player from "@/interface/player";
+import { LoginCredentials } from "@/interface/LoginCredentials";
+import { RegisterCredentials } from "@/interface/RegisterCredentials";
+import Cookies from 'js-cookie';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+class ApiService {
+  private baseURL: string;
+  private readonly AUTH_COOKIE = 'auth_token';
+  private readonly USER_COOKIE = 'user_data';
+  private readonly COOKIE_OPTIONS:any = {
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    expires: 7 // 7 days
+  };
+
+  constructor() {
+    this.baseURL = API_BASE_URL;
+  }
+
+  private async request<T>(
+    endpoint: string, 
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${this.baseURL}${endpoint}`;
+
+    const config: RequestInit = {
+      credentials: 'include', // Important for cookies
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    };
+
+    try {
+      const response = await fetch(url, config);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('API request failed:', error);
+      throw error;
+    }
+  }
+
+  private getToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return Cookies.get(this.AUTH_COOKIE) || null;
+  }
+
+  private setToken(token: string): void {
+    if (typeof window === 'undefined') return;
+    Cookies.set(this.AUTH_COOKIE, token, this.COOKIE_OPTIONS);
+  }
+
+  private removeToken(): void {
+    if (typeof window === 'undefined') return;
+    Cookies.remove(this.AUTH_COOKIE);
+  }
+
+  private setUserData(player: Player): void {
+    if (typeof window === 'undefined') return;
+    Cookies.set(this.USER_COOKIE, JSON.stringify(player), this.COOKIE_OPTIONS);
+  }
+
+  private removeUserData(): void {
+    if (typeof window === 'undefined') return;
+    Cookies.remove(this.USER_COOKIE);
+  }
+
+  // Auth endpoints
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    try {
+      const response = await this.request<AuthResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+      });
+
+      // Only set cookies if login was successful
+      if (response.success) {
+        if (response.token) {
+          this.setToken(response.token);
+        }
+        if (response.player) {
+          this.setUserData(response.player);
+        }
+      }
+
+      return response;
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    }
+  }
+
+  async register(credentials: RegisterCredentials): Promise<AuthResponse> {
+    try{
+    const response = await this.request<AuthResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+
+    if (response.success && response.token) {
+      this.setToken(response.token);
+      if (response.player) {
+        this.setUserData(response.player);
+      }
+    }
+
+    return response;
+  }catch(error){
+    console.error('Registration failed :', error); 
+    throw error ; 
+   }
+  }
+
+  async getProfile(): Promise<Player> {
+    try {
+      const response = await this.request<{success: boolean, player: Player}>('/auth/profile');
+      if (response.success && response.player) {
+        this.setUserData(response.player);
+        return response.player;
+      }
+      throw new Error('Failed to get profile');
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('401')) {
+        this.removeToken();
+        this.removeUserData();
+      }
+      throw error;
+    }
+  }
+
+  async logout(): Promise<void> {
+    await this.request('/auth/logout', { method: 'POST' });
+    this.removeToken();
+    this.removeUserData();
+  }
+
+  // Check if user is authenticated
+  isAuthenticated(): boolean {
+    return !!this.getToken();
+  }
+
+  // Initialize auth state from cookies
+  initializeAuth(): Player | null {
+    const userData = Cookies.get(this.USER_COOKIE);
+    if (userData) {
+      try {
+        return JSON.parse(userData);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
+export const apiService = new ApiService();
