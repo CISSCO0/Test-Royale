@@ -2,20 +2,11 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { apiService } from './api';
-import Player from '@/interface/player';
+import Player from '@/interface/Player';
 import { LoginCredentials } from '@/interface/LoginCredentials';
 import { RegisterCredentials } from '@/interface/RegisterCredentials';
-import Cookies from 'js-cookie';
-
-interface AuthContextType {
-  player : Player | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  register: (credentials: RegisterCredentials) => Promise<void>;
-  logout: () => void;
-  checkAuth: () => Promise<void>; // to persist login on page reload
-}
+import { AuthResponse } from '@/interface/AuthResponse';
+import { AuthContextType } from '@/interface/AuthContext';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -67,19 +58,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Update register to use cookies
-  const register = async (credentials: RegisterCredentials) => {
-    try {
-      const response = await apiService.register(credentials);
-      if (response.success && response.player) {
-        setUser(response.player);
-      } else {
-        throw new Error(response.error || 'Registration failed');
-      }
-    } catch (error) {
-      throw error;
+ const startRegistration = async (credentials: RegisterCredentials) => {
+  try {
+    const response = await apiService.startRegistration(credentials);
+    if (!response.success) {
+      throw new Error(response.error || "Failed to send code");
     }
-  };
+    return response;
+  } catch (err) {
+    throw err;
+  }
+};
+const verifyRegistration = async (email: string, code: string) => {
+  try {
+    const response = await apiService.verifyRegistration(email, code);
+
+    if (response.success && response.player) {
+      setUser(response.player);  // user logged in after verify
+    } else {
+      throw new Error(response.error || "Verification failed");
+    }
+
+    return response;
+
+  } catch (err) {
+    throw err;
+  }
+};
 
   // Update logout to use cookies
   const logout = () => {
@@ -92,7 +97,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     isAuthenticated,
     login,
-    register,
+    startRegistration,
+    verifyRegistration,
     logout,
     checkAuth: async () => {
       setIsLoading(true);
@@ -128,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAuth() {
+export function useAuth(){
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

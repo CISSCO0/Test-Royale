@@ -1,6 +1,5 @@
-
 export interface Player {
-  id: string;
+  playerId:object;
   email: string;
   name: string;
   totalScore?: number;

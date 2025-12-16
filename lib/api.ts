@@ -1,20 +1,28 @@
 // API service layer for backend communication
-import AuthResponse from "@/interface/AuthResponse";
-import Player from "@/interface/player";
+import { AuthResponse } from "@/interface/AuthResponse";
+import Player from "@/interface/Player";
+import { Cookie } from "next/font/google";
 import { LoginCredentials } from "@/interface/LoginCredentials";
 import { RegisterCredentials } from "@/interface/RegisterCredentials";
 import Cookies from 'js-cookie';
 
+import { GetLastSubmissionResponse } from "@/interface/GetLastSubmissionResponse";
+import { GameResponse } from "@/interface/GetGameResponse";
+import { GetChallengeResponse } from "@/interface/GetChallengeResponse";
+import { RunResponse } from "@/interface/RunResponse";
+import { CoverageReport } from "@/interface/GenerateCoverageResponse";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 class ApiService {
+
   private baseURL: string;
   private readonly AUTH_COOKIE = 'auth_token';
   private readonly USER_COOKIE = 'user_data';
   private readonly COOKIE_OPTIONS:any = {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    expires: 7 // 7 days
+    expires: 7 
   };
 
   constructor() {
@@ -103,26 +111,37 @@ class ApiService {
     }
   }
 
-  async register(credentials: RegisterCredentials): Promise<AuthResponse> {
-    try{
-    const response = await this.request<AuthResponse>('/auth/register', {
+ async startRegistration(credentials: RegisterCredentials): Promise<any> {
+  try {
+    const response = await this.request<any>('/auth/start-registration', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
 
-    if (response.success && response.token) {
-      this.setToken(response.token);
-      if (response.player) {
-        this.setUserData(response.player);
-      }
+    return response; // { success: true, message: "Verification code sent" }
+  } catch (err) {
+    throw err;
+  }
+}
+
+async verifyRegistration(email: string, code: string): Promise<AuthResponse> {
+  try {
+    const response = await this.request<AuthResponse>('/auth/verify-registration', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    });
+
+    if (response.success && response.player) {
+      this.setUserData(response.player);
     }
 
     return response;
-  }catch(error){
-    console.error('Registration failed :', error); 
-    throw error ; 
-   }
+
+  } catch (err) {
+    throw err;
   }
+}
+
 
   async getProfile(): Promise<Player> {
     try {
@@ -164,6 +183,76 @@ class ApiService {
     }
     return null;
   }
+
+  //game API
+  /** Get game by ID */
+  async getGame(gameId:string): Promise<GameResponse> {
+    return await this.request(`/game/${gameId}`, { method: "GET" });
+  }
+
+  /** Submit test code for a game */
+  async submitTestCode(gameId: string , playerId:object, testCode: string ) {
+    return await this.request("/game/submitTestCode", {
+      method: "POST",
+      body: JSON.stringify({ gameId, playerId, testCode }),
+    }
+  )
+  }
+
+  /**Get Last Submission  */
+  async getLastSubmission(playerId:string, gameId: string): Promise<GetLastSubmissionResponse> {
+    return await this.request(`/game/${playerId}/${gameId}/lastSubmission`, {
+      method: "GET",
+    });
+  }
+
+  //code API
+  /** Get a specific coding challenge */
+  async getChallenge(id: string): Promise<GetChallengeResponse> {
+    console.log("api service "+ id);
+    return await this.request(`/code/${id}`, { method: 'GET' });
+  }
+
+  /** run code  */
+  async compileAndRunCSharpCode (code: string, tests: string ,playerId:object): Promise<RunResponse> {
+  return await this.request("/code/compileAndRunCSharpCode", {
+    method: "POST",
+    body: JSON.stringify({ code, tests,playerId }),
+  });
+  
+  }
+
+  /** generate coverage report */
+  async generateCoverageReport(playerTestDir:string,code: string): Promise<CoverageReport> {
+    return await this.request("/code/generateCoverageReport", {
+      method: "POST",
+      body: JSON.stringify({playerTestDir, code }),
+    });
+  }
+
+async calculateTestLines(code: string) {
+  return await this.request("/code/calculateTestLines", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
 }
+
+/** generate mutation testing report */
+async generateMutationReport(playerTestsDir: string, projectDir:string): Promise<any> {
+  return await this.request("/code/generateMutationReport", {
+    method: "POST",
+    body: JSON.stringify({ playerTestsDir, projectDir }),
+  });
+}
+
+async calculatePlayerData(playerId: object, gameId: string): Promise<any> {
+  return await this.request("/game/calculate-player-data", {
+    method: "POST",
+    body: JSON.stringify({ playerId, gameId }),
+  });
+}
+
+}
+
 
 export const apiService = new ApiService();

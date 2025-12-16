@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth-context"
 
 export function Navigation() {
   const pathname = usePathname()
-  const { user, isAuthenticated, logout, isLoading } = useAuth()
+  const { player,isAuthenticated, logout, isLoading } = useAuth()
 
   const links = [
     { href: "/", label: "Home", icon: Home },
@@ -30,9 +30,9 @@ export function Navigation() {
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <Swords className="w-6 h-6 text-primary" />
+            <Swords className="w-6 h-6 text-orange-500 "/>
             <span className="font-bebas text-2xl tracking-wider text-foreground">
-              BATTLE OF <span className="text-primary">TESTS</span>
+              TEST <span className="text-orange-500">ROYALE</span>
             </span>
           </Link>
 
@@ -61,32 +61,47 @@ export function Navigation() {
               ) : isAuthenticated ? (
                 <div className="flex items-center gap-4">
                   <span className="text-sm text-muted-foreground">
-                    Welcome, <span className="text-foreground font-medium">{user?.username}</span>
+                    Welcome, <span className="text-foreground font-medium">{player?.name}</span>
                   </span>
                   <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleLogout}
-                    className="flex items-center gap-2"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Logout
-                  </Button>
+  variant="outline"
+  size="sm"
+  onClick={handleLogout}
+ className="flex items-center gap-2 border-muted-foreground text-muted-foreground 
+             hover:bg-orange-600 hover:text-white hover:border-orange-600
+             active:bg-orange-700 active:border-orange-700
+             transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
+>
+  <LogOut className="w-4 h-4" />
+  Logout
+</Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href="/login" className="flex items-center gap-2">
-                      <LogIn className="w-4 h-4" />
-                      Login
-                    </Link>
-                  </Button>
-                  <Button asChild size="sm">
-                    <Link href="/register" className="flex items-center gap-2">
-                      Register
-                    </Link>
-                  </Button>
-                </div>
+               <div className="flex items-center gap-2">
+
+<Button asChild variant="outline" size="sm" 
+  className="flex items-center gap-2 border-muted-foreground text-muted-foreground 
+             hover:bg-orange-600 hover:text-white hover:border-orange-600
+             active:bg-orange-700 active:border-orange-700
+             transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
+>
+  <Link href="/login" className="flex items-center gap-2">
+    <LogIn className="w-4 h-4" />
+    Login
+  </Link>
+</Button>
+  <Button asChild size="sm" 
+    className="flex items-center gap-2 bg-gradient-to-r
+                   from-orange-600 to-orange-500 hover:from-orange-500
+                   hover:to-orange-400 text-white font-bebas shadow-lg shadow-orange-500/20 
+                   hover:shadow-orange-400/30 transition-all duration-300 transform hover:scale-[1.02] 
+                   active:scale-[0.98]"
+  >
+    <Link href="/register" className="flex items-center gap-2">
+      Register
+    </Link>
+  </Button>
+</div>
               )}
             </div>
           </div>

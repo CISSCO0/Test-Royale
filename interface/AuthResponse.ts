@@ -1,9 +1,9 @@
 
-import Player from './player';
+import Player from './Player';
 export interface AuthResponse {
   success: boolean;
-  player?: Player;
-  token?: string;
-  error?: string;
+  message?: string;     
+  error?: string;      
+  player?: Player;    
+  token?: string;      
 }
-export default AuthResponse;
