@@ -1,8 +1,7 @@
-import type { Player } from './Player';
 import { LoginCredentials } from './LoginCredentials';
 import { RegisterCredentials } from './RegisterCredentials';
 import { AuthResponse } from './AuthResponse';
-
+import { Player } from './Player';
 export interface AuthContextType {
   player: Player | null;
   isLoading: boolean;
