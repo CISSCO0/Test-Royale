@@ -1,4 +1,4 @@
-import { Player } from './Player';
+import type { Player } from './Player';
 import { LoginCredentials } from './LoginCredentials';
 import { RegisterCredentials } from './RegisterCredentials';
 import { AuthResponse } from './AuthResponse';
