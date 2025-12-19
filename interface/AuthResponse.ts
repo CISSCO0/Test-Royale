@@ -1,5 +1,5 @@
 
-import { Player } from './Player';
+import type { Player } from './Player';
 export interface AuthResponse {
   success: boolean;
   message?: string;     
