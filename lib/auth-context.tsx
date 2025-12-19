@@ -6,7 +6,20 @@ import { Player } from '@/interface/Player';
 import { LoginCredentials } from '@/interface/LoginCredentials';
 import { RegisterCredentials } from '@/interface/RegisterCredentials';
 import { AuthResponse } from '@/interface/AuthResponse';
-import { AuthContextType } from '@/interface/AuthContext';
+interface AuthContextType {
+  player: Player | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+
+  login: (credentials: LoginCredentials) => Promise<void>;
+
+  startRegistration: (credentials: RegisterCredentials) => Promise<AuthResponse>;
+  verifyRegistration: (email: string, code: string) => Promise<AuthResponse>;
+
+  logout: () => void;
+  checkAuth: () => Promise<void>;
+}
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
