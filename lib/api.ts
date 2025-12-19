@@ -1,6 +1,6 @@
 // API service layer for backend communication
 import { AuthResponse } from "@/interface/AuthResponse";
-import Player from "@/interface/Player";
+import { Player } from "@/interface/Player";
 import { Cookie } from "next/font/google";
 import { LoginCredentials } from "@/interface/LoginCredentials";
 import { RegisterCredentials } from "@/interface/RegisterCredentials";
@@ -195,7 +195,7 @@ async verifyRegistration(email: string, code: string): Promise<AuthResponse> {
   async getPlayer(id:any): Promise<any> {
     return await this.request(`/auth/getPlayer/${id}`, { method: "GET" });
   }
-  
+
   /** Submit test code for a game */
   async submitTestCode(gameId: string , playerId:object, testCode: string ) {
     return await this.request("/game/submitTestCode", {

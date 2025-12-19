@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { apiService } from './api';
-import Player from '@/interface/Player';
+import { Player } from '@/interface/Player';
 import { LoginCredentials } from '@/interface/LoginCredentials';
 import { RegisterCredentials } from '@/interface/RegisterCredentials';
 import { AuthResponse } from '@/interface/AuthResponse';
