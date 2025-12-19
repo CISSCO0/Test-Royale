@@ -1,4 +1,4 @@
-export interface Player {
+interface Player {
   playerId:object;
   email: string;
   name: string;

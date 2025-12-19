@@ -160,6 +160,7 @@ async verifyRegistration(email: string, code: string): Promise<AuthResponse> {
     }
   }
 
+
   async logout(): Promise<void> {
     await this.request('/auth/logout', { method: 'POST' });
     this.removeToken();
@@ -190,6 +191,11 @@ async verifyRegistration(email: string, code: string): Promise<AuthResponse> {
     return await this.request(`/game/${gameId}`, { method: "GET" });
   }
 
+  
+  async getPlayer(id:any): Promise<any> {
+    return await this.request(`/auth/getPlayer/${id}`, { method: "GET" });
+  }
+  
   /** Submit test code for a game */
   async submitTestCode(gameId: string , playerId:object, testCode: string ) {
     return await this.request("/game/submitTestCode", {
@@ -249,6 +255,16 @@ async calculatePlayerData(playerId: object, gameId: string): Promise<any> {
   return await this.request("/game/calculate-player-data", {
     method: "POST",
     body: JSON.stringify({ playerId, gameId }),
+  });
+}
+async endGame(gameId: string): Promise<any> {
+  return await this.request(`/game/end/${gameId}`, {
+    method: "POST",
+  });
+}
+async getGameResults(gameId: string): Promise<any> {
+  return await this.request(`/game/results/${gameId}`, {
+    method: "GET",
   });
 }
 

@@ -21,32 +21,32 @@ export default function GamePage({ params }: { params: { id: string } }) {
   const [isRunning, setIsRunning] = useState(false);
   const [timerDuration, setTimerDuration] = useState<number | null>(null);
   const [coveredLines, setCoveredLines] = useState<Set<number>>(new Set());
-  // ✅ Results modal states
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [resultsLoading, setResultsLoading] = useState(false);
   const [playerData, setPlayerData] = useState<any>(null);
   const [resultsError, setResultsError] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-
-  // ✅ Disclaimer states
   const [showDisclaimer, setShowDisclaimer] = useState(true);
   const [showTimerWarning, setShowTimerWarning] = useState(false);
-   
+  const [gameEnded, setGameEnded] = useState(false);  // ✅ NEW
+  
   const { player } = useAuth();
   const router = useRouter();
   const hasInitialized = useRef(false);
   const timerWarningShown = useRef(false);
-  
+  const gameEndedRef = useRef(false);  // ✅ NEW - Prevent multiple submissions
+
+  // ✅ Initialize game
   useEffect(() => {
     const initializeGame = async () => {
       try {
-        const gameData:any = await apiService.getGame(id);
+        const gameData: any = await apiService.getGame(id);
         if (!gameData.success) {
           throw new Error(gameData.error || 'Failed to load game');
         }
         setGame(gameData.game);
 
-        const challengeData:any = await apiService.getChallenge(gameData.game.codeId);
+        const challengeData: any = await apiService.getChallenge(gameData.game.codeId);
         if (!challengeData.success) {
           throw new Error(challengeData.error || 'Failed to load challenge');
         }
@@ -56,7 +56,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
         
         if (savedCode) {
           setPlayerTests(savedCode);
-          console.log(" Restored saved code from sessionStorage");
+          console.log("Restored saved code from sessionStorage");
         } else {
           setPlayerTests(challengeData.challenge.testTemplate || "");
           sessionStorage.setItem(`game_${id}_playerTests`, challengeData.challenge.testTemplate || "");
@@ -74,10 +74,10 @@ export default function GamePage({ params }: { params: { id: string } }) {
         const totalDuration = challengeData.challenge.time;
         const remainingSeconds = Math.max(0, totalDuration - elapsedSeconds);
 
-        setTimerDuration(remainingSeconds);
+        setTimerDuration(900);
         
         if (remainingSeconds <= 0) {
-          setTimerDuration(1000);
+          setTimerDuration(900);
         }
 
         setShowBattleAnimation(false);
@@ -104,6 +104,44 @@ export default function GamePage({ params }: { params: { id: string } }) {
       timerWarningShown.current = true;
     }
   }, [timerDuration]);
+
+  // ✅ Auto-submit when timer ends
+  useEffect(() => {
+    if (timerDuration === 0 && !gameEndedRef.current && game && player) {
+      gameEndedRef.current = true;
+      console.log("⏰ Timer ended! Auto-submitting...");
+      handleTimerEnd();
+    }
+  }, [timerDuration, game, player]);
+
+  // ✅ Handle timer completion - Auto-submit
+  const handleTimerEnd = async () => {
+    try {
+      setGameEnded(true);
+      setIsGeneratingReport(true);
+
+      // 1️⃣ End the game on backend
+      console.log("🔚 Ending game...");
+      const endGameResult: any = await apiService.endGame(game!._id);
+
+      if (!endGameResult.success) {
+        console.error("Failed to end game:", endGameResult.error);
+        setResultsError(endGameResult.error || 'Failed to end game');
+      } else {
+        console.log("✅ Game ended successfully");
+      }
+
+      // 2️⃣ Navigate to results page
+      console.log("📊 Navigating to results page...");
+      router.push(`/results/${game!._id}`);
+
+    } catch (error: any) {
+      console.error("Error during timer end:", error);
+      setResultsError(error.message || 'Failed to complete game');
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
 
   useEffect(() => {
     if (playerTests && hasInitialized.current) {
@@ -133,9 +171,9 @@ export default function GamePage({ params }: { params: { id: string } }) {
         return;
       }
 
-      const statsLine =  `(${result.stats.executionTime}s)`;
+      const statsLine = `(${result.executionTime}s)`;
       const fullOutput = `${result.stdout} ${statsLine}`;
-      
+
       setOutput(fullOutput);
 
       // 2️⃣ Submit the code
@@ -156,7 +194,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
 
     } catch (err: any) {
       console.error('Run and submit error:', err);
-      setOutput(` Error: ${err.message || 'Failed to run code'}`);
+      setOutput(`Error: ${err.message || 'Failed to run code'}`);
       setPlayerData(null);
     } finally {
       setTimeout(() => setIsRunning(false), 300);
@@ -181,7 +219,8 @@ export default function GamePage({ params }: { params: { id: string } }) {
       }
 
       setPlayerData(result.playerData);
-          console.log("line coverage" + result.playerData.lineCoverage);
+      console.log("Mutation details:", result.playerData.mutation.details);
+
       // ✅ Extract covered lines from lineCoverage
       if (result.playerData.lineCoverage && Array.isArray(result.playerData.lineCoverage)) {
         const covered = new Set<number>();
@@ -206,7 +245,6 @@ export default function GamePage({ params }: { params: { id: string } }) {
       setResultsLoading(false);
     }
   };
-
 
   const handleCloseResults = () => {
     setShowResultsModal(false);
@@ -248,6 +286,22 @@ export default function GamePage({ params }: { params: { id: string } }) {
     );
   }
 
+  // ✅ Show loading screen when game ends
+  if (gameEnded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-6">
+          <div className="w-20 h-20 mx-auto border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+
+          <h1 className="font-bebas text-4xl tracking-wider text-orange-400">
+            GAME ENDED
+          </h1>
+          <p className="text-muted-foreground text-lg">Finalizing results...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="flex items-center justify-center overflow-auto relative z-10 min-h-screen mt-16">
@@ -268,12 +322,10 @@ export default function GamePage({ params }: { params: { id: string } }) {
                   <div className="flex items-center gap-4">
                     <SparklerTimer
                       duration={timerDuration}
-                      onComplete={() => {
-                        // Handle timer completion
-                      }}
+                      onComplete={handleTimerEnd}  // ✅ UPDATED
                     />
                     <span className="font-bebas text-1xl text-orange-400/70 py-2 px-1">
-                      / {Math.ceil(challenge.time / 60)} min 
+                      / 15 min 
                     </span>
                   </div>
                 ) : (
@@ -288,90 +340,92 @@ export default function GamePage({ params }: { params: { id: string } }) {
           <div className="border-t border-orange-500/20 mb-8 relative">
             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-px bg-gradient-to-r from-transparent via-orange-500 to-transparent"></div>
           </div>
-{/* ✅ Initial Disclaimer Banner */}
-{showDisclaimer && (
-  <div className="bg-gradient-to-r from-yellow-900/40 via-orange-900/40 to-red-900/40 border border-yellow-500/50 rounded-xl p-5">
-    <div className="flex items-start gap-4">
-      <AlertTriangle className="w-8 h-8 text-yellow-400 flex-shrink-0 mt-0.5 " />
-      <div className="flex-1">
-        <h4 className="font-bold text-yellow-300 text-lg mb-2"> GAME STARTED - CRITICAL WARNINGS </h4>
-        
-        <div className="space-y-4">
-          {/* Warning Section */}
-          <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-              <span className="font-bold text-red-300 text-sm">IMPORTANT: FINAL SUBMISSION RULES</span>
-            </div>
-            <ul className="text-yellow-200/90 text-sm space-y-2 ml-4">
-              <li className="flex items-start gap-2">
-                <span className="text-red-400 font-bold">•</span>
-                <span>
-                  <span className="font-bold text-orange-300">Compilation Errors:</span> Ensure your code compiles before the timer ends. Code with compilation errors will receive <span className="font-bold text-red-300">ZERO POINTS</span>.
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-red-400 font-bold">•</span>
-                <span>
-                  <span className="font-bold text-orange-300">Timer Submission:</span> When the timer reaches 0, your <span className="font-bold text-orange-300">LAST SUCCESSFUL RUN</span> will be automatically submitted as your final answer.
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-red-400 font-bold">•</span>
-                <span>
-                  <span className="font-bold text-orange-300">No Manual Submission:</span> You cannot manually submit after the timer ends. Make sure your final run is correct!
-                </span>
-              </li>
-            </ul>
-          </div>
 
-          {/* Game Instructions */}
-          <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-3">
-            <p className="text-yellow-200 text-sm mb-2">
-              <span className="font-bold text-orange-300">HOW TO PLAY:</span> Click the <span className="font-bold text-orange-300 bg-orange-900/40 px-2 py-1 rounded">"RUN & SUBMIT"</span> button to execute your tests and see real-time feedback.
-            </p>
-            <p className="text-yellow-200 text-sm mb-2">
-              Each run shows your <span className="font-bold text-green-300">coverage</span>, <span className="font-bold text-purple-300">mutation score</span>, and other metrics. Use this feedback to improve your tests.
-            </p>
-            <p className="text-yellow-200 text-sm mb-2">
-              Make sure to use MSTest framework ONLY other frameworks will lead to compilation errors
-            </p>
-            <p className="text-yellow-200 text-sm">
-              Refine your tests throughout the game to create the highest quality test cases and <span className="font-bold text-orange-300">WIN AGAINST YOUR FRIENDS!</span>
-            </p>
-          </div>
+          {/* ✅ Initial Disclaimer Banner */}
+          {showDisclaimer && (
+            <div className="bg-gradient-to-r from-yellow-900/40 via-orange-900/40 to-red-900/40 border border-yellow-500/50 rounded-xl p-5">
+              <div className="flex items-start gap-4">
+                <AlertTriangle className="w-8 h-8 text-yellow-400 flex-shrink-0 mt-0.5 " />
+                <div className="flex-1">
+                  <h4 className="font-bold text-yellow-300 text-lg mb-2"> GAME STARTED - CRITICAL WARNINGS </h4>
+                  
+                  <div className="space-y-4">
+                    {/* Warning Section */}
+                    <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                        <span className="font-bold text-red-300 text-sm">IMPORTANT: FINAL SUBMISSION RULES</span>
+                      </div>
+                      <ul className="text-yellow-200/90 text-sm space-y-2 ml-4">
+                        <li className="flex items-start gap-2">
+                          <span className="text-red-400 font-bold">•</span>
+                          <span>
+                            <span className="font-bold text-orange-300">Compilation Errors:</span> Ensure your code compiles before the timer ends. Code with compilation errors will receive <span className="font-bold text-red-300">ZERO POINTS</span>.
+                          </span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-red-400 font-bold">•</span>
+                          <span>
+                            <span className="font-bold text-orange-300">Timer Submission:</span> When the timer reaches 0, your <span className="font-bold text-orange-300">LAST SUCCESSFUL RUN</span> will be automatically submitted as your final answer.
+                          </span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-red-400 font-bold">•</span>
+                          <span>
+                            <span className="font-bold text-orange-300">No Manual Submission:</span> You cannot manually submit after the timer ends. Make sure your final run is correct!
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
 
-          {/* Quick Tips */}
-          <div className="flex items-center gap-3 text-xs text-yellow-300/80">
-            <div className="flex items-center gap-1">
-              <CheckCircle className="w-4 h-4 text-green-400" />
-              <span>Test frequently with RUN & SUBMIT</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Timer className="w-4 h-4 text-orange-400" />
-              <span>Watch the countdown timer</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <AlertCircle className="w-4 h-4 text-red-400" />
-              <span>Fix compilation errors immediately</span>
-            </div>
-          </div>
+                    {/* Game Instructions */}
+                    <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-3">
+                      <p className="text-yellow-200 text-sm mb-2">
+                        <span className="font-bold text-orange-300">HOW TO PLAY:</span> Click the <span className="font-bold text-orange-300 bg-orange-900/40 px-2 py-1 rounded">"RUN & SUBMIT"</span> button to execute your tests and see real-time feedback.
+                      </p>
+                      <p className="text-yellow-200 text-sm mb-2">
+                        Each run shows your <span className="font-bold text-green-300">coverage</span>, <span className="font-bold text-purple-300">mutation score</span>, and other metrics. Use this feedback to improve your tests.
+                      </p>
+                      <p className="text-yellow-200 text-sm mb-2">
+                        Make sure to use MSTest framework ONLY other frameworks will lead to compilation errors
+                      </p>
+                      <p className="text-yellow-200 text-sm">
+                        Refine your tests throughout the game to create the highest quality test cases and <span className="font-bold text-orange-300">WIN AGAINST YOUR FRIENDS!</span>
+                      </p>
+                    </div>
 
-          {/* Action Button */}
-          <div className="pt-2">
-            <button
-              onClick={() => setShowDisclaimer(false)}
-              className="text-sm px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white font-semibold rounded-lg transition-all duration-300 shadow-lg hover:shadow-yellow-500/25 flex items-center gap-2"
-            >
-              <Play className="w-4 h-4" />
-              Got it, Let's Code! 
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+                    {/* Quick Tips */}
+                    <div className="flex items-center gap-3 text-xs text-yellow-300/80">
+                      <div className="flex items-center gap-1">
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <span>Test frequently with RUN & SUBMIT</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Timer className="w-4 h-4 text-orange-400" />
+                        <span>Watch the countdown timer</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4 text-red-400" />
+                        <span>Fix compilation errors immediately</span>
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="pt-2">
+                      <button
+                        onClick={() => setShowDisclaimer(false)}
+                        className="text-sm px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white font-semibold rounded-lg transition-all duration-300 shadow-lg hover:shadow-yellow-500/25 flex items-center gap-2"
+                      >
+                        <Play className="w-4 h-4" />
+                        Got it, Let's Code! 
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ✅ Timer Warning Banner */}
           {showTimerWarning && (
             <div className="bg-gradient-to-r from-red-900/50 to-orange-900/50 border border-red-500/70 rounded-xl p-5 flex items-start gap-4 animate-bounce">
@@ -394,7 +448,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          {/* Main Content */}
+          {/* Main Content Grid */}
           <div className="grid lg:grid-cols-2 gap-6">
             {/* Left Side - Code to Test */}
             <div className="space-y-4">
@@ -407,10 +461,9 @@ export default function GamePage({ params }: { params: { id: string } }) {
                 </span>
               </div>
               
-              
               <div className="editor-base h-[650px] rounded-xl overflow-hidden border-2 border-orange-500/30 shadow-xl bg-card">
                 <CodeEditorDisplay 
-                 id="base"
+                  id="base"
                   value={challenge.baseCode} 
                   editable={false}
                   highlightedLines={coveredLines}
@@ -477,14 +530,13 @@ export default function GamePage({ params }: { params: { id: string } }) {
                 </div>
               </div>
               
-              {/* ✅ NO highlighted lines on right side - only editable code */}
               <div className="h-[650px] rounded-xl overflow-hidden border-2 border-orange-500/50 shadow-xl bg-card">
                 <CodeEditorDisplay
-                   id="tests"
+                  id="tests"
                   value={playerTests}
                   onChange={setPlayerTests}
                   editable={true}
-                  highlightedLines={new Set()}  // ✅ Empty set - no highlighting
+                  highlightedLines={new Set()}
                   highlightColor="green"
                 />
               </div>

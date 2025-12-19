@@ -1,560 +1,704 @@
 "use client";
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Trophy, Target, Zap, Shield, Star, Crown, Medal } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
-import { apiService } from "@/lib/api"
 
-import { GetLastSubmissionResponse ,Submission} from "@/interface/GetLastSubmissionResponse"
-import { GameResponse } from "@/interface/GetGameResponse"
-import { GetChallengeResponse , Challenge} from "@/interface/GetChallengeResponse"
-import { RunResponse } from "@/interface/RunResponse"
-import { LineCoverage , CoverageReport} from "@/interface/GenerateCoverageResponse"
-
-import { PlayerResult } from "@/interface/PlayerResult"
-import { Game } from "@/interface/GetGameResponse"
-import {PlayerCoverage} from "@/interface/PlayerCoverage"
-import { TestMetrics } from "@/interface/MutationSummary"
-
-//get badges info 
-const badges = [
-  { id: "coverage-king", name: "Coverage King", icon: Shield, threshold: 80, color: "text-chart-1" },
-  { id: "speed-demon", name: "Speed Demon", icon: Zap, threshold: 70, color: "text-primary" },
-  { id: "quality-champion", name: "Quality Champion", icon: Star, threshold: 90, color: "text-chart-2" },
-  { id: "test-master", name: "Test Master", icon: Target, threshold: 85, color: "text-chart-1" },
-]
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+import { apiService } from "@/lib/api";
+import { Activity, Award, BarChart3, Bug, CheckCircle, ChevronLeft, Code, Crown, FileCode, Medal, Target, Timer, TrendingUp, Trophy, Users, Zap } from "lucide-react";
 
 export default function ResultsPage({ params }: { params: { id: string } }) {
-
+  const { id } = params; 
+  const gameId = id;
   const router = useRouter();
-  const { player , isLoading ,isAuthenticated }:any  = useAuth();
-  const gameId = params.id;
-  const [gameData, setGameData] = useState<Game | null>(null);
-  const [submissionData, setSubmissionData] = useState<Submission | null>(null);
-  const [challengeData, setChallengeData] = useState<Challenge>();
-  const [runData, setRunData] = useState<RunResponse | null>(null);
-  const [coverageReport, setCoverageReport] = useState<CoverageReport | null >(null);
-  const [lineOfCode, setLineOfCode] = useState<number | null>(null);
-
-  const [earnedBadges, setEarnedBadges] = useState<string[]>([])
-  const [allPlayers, setAllPlayers] = useState<PlayerResult[]>([])
-  const [currentPlayerRank, setCurrentPlayerRank] = useState(0)
+  const { player, isLoading: authLoading, isAuthenticated }: any = useAuth();
+  
   const [loading, setLoading] = useState(true);
+  const [gameResults, setGameResults] = useState<any | null>(null);
+  const [playersWithDetails, setPlayersWithDetails] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'comparison' | 'details'>('overview');
+  const [fetchingPlayerInfo, setFetchingPlayerInfo] = useState(false);
+useEffect(() => {
+  console.group("🎮 useEffect Triggered");
+  console.log("authLoading:", authLoading);
+  console.log("isAuthenticated:", isAuthenticated);
+  console.log("gameId:", gameId);
+  console.groupEnd();
 
-  // Add new loading states
-  const [isLoadingSubmission, setIsLoadingSubmission] = useState(true);
-  const [isRunningCode, setIsRunningCode] = useState(true);
-  const [isGeneratingCoverage, setIsGeneratingCoverage] = useState(true);
-  const [mutationResult, setMutationResult] = useState<any>(null);
-
-  useEffect(() => {
-    const fetchResults = async () => {
-      try {
-        if (!gameId ||!player) return;
-        // 1. Get last submission
-        const LastSubmissionResponse : GetLastSubmissionResponse = await apiService.getLastSubmission(player.playerId, gameId);
-        setSubmissionData(LastSubmissionResponse.submission);
-
-        // 2. Get game data 
-        const GetGameResponse:GameResponse = await apiService.getGame(gameId);
-        
-        if (!LastSubmissionResponse?.success || !GetGameResponse?.success) {
-          throw new Error('Failed to fetch initial data');
-        }
-        setGameData(GetGameResponse.game);
-
-        
-        const getChallengeResponse:GetChallengeResponse = await apiService.getChallenge(GetGameResponse.game.codeId);
-
-        if (!getChallengeResponse?.success) {
-          throw new Error('Failed to load challenge');
-        }
-
-        setChallengeData(getChallengeResponse.challenge);
-
-        // 3. Run code once and store results
-        const runResponse:RunResponse = await apiService.compileAndRunCSharpCode(
-          getChallengeResponse.challenge.baseCode,
-          LastSubmissionResponse.submission.code,
-          player.playerId
-        );
-        //if failed what should happen ?
-        if (!runResponse) {
-          throw new Error('Failed to run submitted code');
-        }
-        setRunData(runResponse);
-
-
-       // Generate coverage report (includes real line & branch coverage)
-        const generateCoverageReport:CoverageReport = await apiService.generateCoverageReport(
-          runResponse.playerTestsDir,
-          LastSubmissionResponse.submission.code
-        );
-        setCoverageReport(generateCoverageReport);
-
-        // Get test lines count
-        const calculateTestLineResponse:any = await apiService.calculateTestLines(LastSubmissionResponse.submission.code);
-        if (calculateTestLineResponse.success) {
-          setLineOfCode(calculateTestLineResponse.totalTestLines);
-
-        }
-
-        // Generate mutation report
-        const mutationResult:any = await apiService.generateMutationReport(runResponse.playerTestsDir,runResponse.projectDir);
-        console.log("Mutation Result:", mutationResult);
-        setMutationResult(mutationResult);
-      } catch (error) { 
-        console.error('Failed to fetch results:', error);
-      } finally {
-        setLoading(false);
-        setIsLoadingSubmission(false);
-        setIsRunningCode(false);
-        setIsGeneratingCoverage(false);
-      }
-    };
-
-    fetchResults();
-  }, [gameId, player]);
-
-  const handlePlayAgain = () => {
-    router.push("/")
+  if (!authLoading) {
+    if (!isAuthenticated) {
+      console.warn("User not authenticated — redirecting to /login");
+      router.push('/login');
+      return;
+    }
+    console.info("User authenticated — loading game results...");
+    loadGameResults();
+  } else {
+    console.log("Auth still loading, waiting...");
   }
+}, [gameId, authLoading, isAuthenticated]);
 
-  const handleViewLeaderboard = () => {
-    router.push("/leaderboard")
+const loadGameResults = async () => {
+  console.group("⚙️ loadGameResults Called");
+  try {
+    setLoading(true);
+    setError(null);
+    
+    console.log("Fetching game results for ID:", gameId);
+    const results = await apiService.getGameResults(gameId);
+    console.log("✅ Raw API Results:", results);
+
+    if (!results || !results.success) {
+      console.error("❌ API returned failure:", results);
+      throw new Error(results?.error || 'Failed to load game results');
+    }
+
+    // Detect players field (handle possible API typos)
+    const playersData = results.playerDate || results.players || results.game?.players;
+    console.log("👥 Players Data Found:", playersData);
+
+    if (!playersData || !Array.isArray(playersData)) {
+      console.error("❌ Invalid players data:", results);
+      throw new Error('No valid player data found in game results');
+    }
+
+    // Sort players
+    const sortedPlayers = [...playersData].sort((a, b) => b.totalScore - a.totalScore);
+    console.log("🏆 Sorted Players by totalScore:", sortedPlayers);
+
+    // Fetch player info
+    setFetchingPlayerInfo(true);
+    const playersWithNames = await Promise.all(
+      sortedPlayers.map(async (playerData) => {
+        try {
+          const playerInfo = await apiService.getPlayer(playerData.playerId);
+          console.log(`ℹ️ Player Info (${playerData.playerId}):`, playerInfo);
+          return {
+            ...playerData,
+            playerName: playerInfo?.name || playerInfo?.username || `Player ${playerData.playerId.slice(-6)}`
+          };
+        } catch (err) {
+          console.warn(`⚠️ Could not fetch player info for ${playerData.playerId}:`, err);
+          return {
+            ...playerData,
+            playerName: `Player ${playerData.playerId.slice(-6)}`
+          };
+        }
+      })
+    );
+
+    console.log("✅ Players with Details:", playersWithNames);
+
+    setPlayersWithDetails(playersWithNames);
+    setGameResults(results);
+
+    if (sortedPlayers.length > 0) {
+      console.log("🎯 Setting initial selected player:", sortedPlayers[0].playerId);
+      setSelectedPlayer(sortedPlayers[0].playerId);
+    }
+
+  } catch (err:any) {
+    console.error("💥 Error loading game results:", err);
+    setError(err.message || 'An error occurred while loading game results');
+  } finally {
+    setLoading(false);
+    setFetchingPlayerInfo(false);
+    console.groupEnd();
   }
+};
 
-  const handleViewProfile = () => {
-    router.push("/profile")
-  }
+  // Helper functions
+  const getPlayerRank = (playerId: string) => {
+    return playersWithDetails.findIndex(p => p.playerId === playerId) + 1;
+  };
 
-  // Update the loading screen to show progress
-  if (loading||isLoading|| isLoadingSubmission || isRunningCode || isGeneratingCoverage) {
+  const getSelectedPlayer = () => {
+    return playersWithDetails.find(p => p.playerId === selectedPlayer);
+  };
+
+  const getRankIcon = (rank: number) => {
+    switch(rank) {
+      case 1: return <Crown className="w-6 h-6 text-yellow-500" />;
+      case 2: return <Medal className="w-6 h-6 text-gray-400" />;
+      case 3: return <Medal className="w-6 h-6 text-amber-700" />;
+      default: return <span className="text-lg font-bold">{rank}</span>;
+    }
+  };
+
+  const getScoreColor = (score: number, maxScore: number) => {
+    if (maxScore === 0) return 'text-slate-400';
+    const percentage = (score / maxScore) * 100;
+    if (percentage >= 80) return 'text-green-500';
+    if (percentage >= 60) return 'text-yellow-500';
+    return 'text-red-500';
+  };
+
+  const calculateAverageScore = () => {
+    if (playersWithDetails.length === 0) return 0;
+    const total = playersWithDetails.reduce((sum, p) => sum + p.totalScore, 0);
+    return total / playersWithDetails.length;
+  };
+
+  const getMaxScore = () => {
+    return playersWithDetails.length > 0 ? Math.max(...playersWithDetails.map(p => p.totalScore)) : 0;
+  };
+
+  // Get winner (player with highest score)
+  const getWinner = () => {
+    return playersWithDetails[0];
+  };
+
+  // Check if current user is in this game
+  const isCurrentPlayerInGame = () => {
+    if (!player || !playersWithDetails.length) return false;
+    return playersWithDetails.some(p => p.playerId === player._id);
+  };
+
+  // Get current player's result
+  const getCurrentPlayerResult = () => {
+    if (!player) return null;
+    return playersWithDetails.find(p => p.playerId === player._id);
+  };
+
+
+
+  if (error) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="fixed inset-0 opacity-[0.02]">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `
-              linear-gradient(var(--primary) 1px, transparent 1px),
-              linear-gradient(90deg, var(--primary) 1px, transparent 1px)
-            `,
-            backgroundSize: "60px 60px",
-          }} />
-        </div>
-        
-        <div className="relative z-10 min-h-screen flex flex-col items-center justify-center">
-          <div className="space-y-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-            
-            <div className="space-y-4">
-              <h2 className="font-bebas text-4xl text-foreground tracking-wider">
-                GENERATING RESULTS
-              </h2>
-              
-              <div className="space-y-2 text-sm">
-                {isLoadingSubmission && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-                    Loading submission...
-                  </div>
-                )}
-                
-                {isRunningCode && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-                    Running tests...
-                  </div>
-                )}
-                
-                {isGeneratingCoverage && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-                    Generating coverage report...
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="bg-red-900/20 border border-red-500/50 rounded-xl p-8 max-w-md">
+          <h2 className="text-2xl font-bold text-red-400 mb-4">Error Loading Results</h2>
+          <p className="text-red-300 mb-6">{error}</p>
+          <button
+            onClick={() => router.back()}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+          >
+            Go Back
+          </button>
         </div>
       </div>
     );
   }
 
-  // if (!results) {
-  //   return (
-  //     <div className="min-h-screen bg-background flex items-center justify-center">
-  //       <Card className="p-8 text-center">
-  //         <h2 className="text-2xl font-bold text-foreground mb-4">Results Not Found</h2>
-  //         <p className="text-muted-foreground mb-6">Unable to load game results.</p>
-  //         <Button onClick={() => router.push('/')}>Return Home</Button>
-  //       </Card>
-  //     </div>
-  //   );
-  // }
-
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Crown className="w-6 h-6 text-yellow-500" />
-    if (rank === 2) return <Medal className="w-6 h-6 text-gray-400" />
-    if (rank === 3) return <Medal className="w-6 h-6 text-amber-600" />
-    return null
-  }
+  const winner = playersWithDetails[0];
+  const maxScore = Math.max(...playersWithDetails.map(p => p.totalScore));
 
   return (
-
-    <div className="min-h-screen bg-background">
-      {/* Main Content Container - Similar structure to game page */}
-
-      <div className="relative z-10 min-h-screen flex flex-col items-center overflow-auto py-20">
-        <div className="max-w-7xl mx-auto w-full px-6 space-y-8">
-          {/* Header */}
-          <div className="text-center space-y-6">
-            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-primary/20 mb-4">
-              <Trophy className="w-12 h-12 text-primary" />
-            </div>
-            <h1 className="font-bebas text-7xl tracking-wider">
-              <span className="text-foreground">BATTLE </span>
-              <span className="text-primary">COMPLETE!</span>
-            </h1>
-            <div className="inline-flex items-center gap-2 bg-primary/20 px-6 py-3 rounded-full">
-              {/* {getRankIcon(currentPlayerRank)} */}
-              <span className="font-bebas text-2xl text-primary tracking-wider">RANK #
-                {/* {currentPlayerRank} */}
-                </span>
+   <div className="flex items-center justify-center overflow-auto relative z-10 min-h-screen mt-16">
+        <div className="max-w-7xl mx-auto space-y-10 w-full px-6">
+         {/* Header */}
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-slate-800/50 rounded-lg transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bebas tracking-wider text-orange-300">
+                GAME RESULTS
+              </h1>
+              <p className="text-slate-400 text-sm">
+                Game ID: {gameId.slice(-8)} • {playersWithDetails.length} players
+              </p>
             </div>
           </div>
+          
+          {winner && (
+            <div className="hidden md:flex items-center gap-3 bg-gradient-to-r from-orange-900/30 to-yellow-900/30 px-4 py-3 rounded-xl border border-orange-500/30">
+              <Trophy className="w-8 h-8 text-yellow-500" />
+              <div>
+                <p className="text-xs text-slate-400">Champion</p>
+                <p className="font-bold text-yellow-400">{winner.playerName}</p>
+              </div>
+            </div>
+          )}
+        </div>
 
-          {/* Cards Grid */}
-          <div className="grid gap-8">
-            {/* Results Card */}
-            <Card className="bg-card border-border p-8">
-              <h2 className="font-bebas text-3xl text-foreground tracking-wider mb-6">CHALLENGE RESULTS</h2>
-              <div className="space-y-3">
-                {allPlayers.map((player, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex items-center justify-between p-4 rounded-lg border-2 
-                      
-                     // player.name === results.playerName ? "bg-primary/10 border-primary" : "bg-secondary border-border"
-                   `
-                  }
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center justify-center w-12 h-12">
-                        {getRankIcon(player.rank) || (
-                          <span className="font-bebas text-2xl text-muted-foreground">#{player.rank}</span>
-                        )}
+        {/* Game Stats Summary */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+            <div className="flex items-center gap-3">
+              <Users className="w-5 h-5 text-blue-400" />
+              <div>
+                <p className="text-slate-400 text-sm">Players</p>
+                <p className="text-2xl font-bold">{playersWithDetails.length}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+            <div className="flex items-center gap-3">
+              <Trophy className="w-5 h-5 text-yellow-500" />
+              <div>
+                <p className="text-slate-400 text-sm">Top Score</p>
+                <p className="text-2xl font-bold text-yellow-400">{winner?.totalScore.toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+            <div className="flex items-center gap-3">
+              <Activity className="w-5 h-5 text-green-400" />
+              <div>
+                <p className="text-slate-400 text-sm">Avg Score</p>
+                <p className="text-2xl font-bold">
+                  {(playersWithDetails.reduce((sum, p) => sum + p.totalScore, 0) / playersWithDetails.length).toFixed(2)}
+                </p>
+              </div>
+            </div>
+          </div>
+          
+  
+        </div>
+
+        {/* Tabs */}
+        <div className="flex space-x-1 mb-8 border-b border-slate-700/50">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-3 font-medium transition-all border-b-2 ${
+              activeTab === 'overview'
+                ? 'border-orange-500 text-orange-400'
+                : 'border-transparent text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 inline mr-2" />
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('comparison')}
+            className={`px-4 py-3 font-medium transition-all border-b-2 ${
+              activeTab === 'comparison'
+                ? 'border-orange-500 text-orange-400'
+                : 'border-transparent text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4 inline mr-2" />
+            Comparison
+          </button>
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`px-4 py-3 font-medium transition-all border-b-2 ${
+              activeTab === 'details'
+                ? 'border-orange-500 text-orange-400'
+                : 'border-transparent text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            <FileCode className="w-4 h-4 inline mr-2" />
+            Details
+          </button>
+        </div>
+
+        {/* Content based on active tab */}
+        <div className="space-y-8">
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Player Rankings */}
+              <div className="lg:col-span-2">
+                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 overflow-hidden">
+                  <div className="p-6 border-b border-slate-700/50">
+                    <h2 className="text-xl font-bold text-orange-300 flex items-center gap-2">
+                      <Trophy className="w-5 h-5" />
+                      Player Rankings
+                    </h2>
+                  </div>
+                  <div className="divide-y divide-slate-700/50">
+                    {playersWithDetails.map((player, index) => (
+                      <div 
+                        key={player.playerId.$oid}
+                        className={`p-4 hover:bg-slate-700/30 transition-all cursor-pointer ${
+                          selectedPlayer === player.playerId.$oid ? 'bg-slate-700/50' : ''
+                        }`}
+                        onClick={() => setSelectedPlayer(player.playerId.$oid)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-orange-900/30 to-yellow-900/30">
+                              {getRankIcon(index + 1)}
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-lg">{player.playerName}</h3>
+                              <div className="flex items-center gap-3 text-sm text-slate-400">
+                                <span className="flex items-center gap-1">
+                                  <Target className="w-3 h-3" />
+                                  Score: <span className="text-orange-400 font-bold">{player.totalScore.toFixed(2)}</span>
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Bug className="w-3 h-3" />
+                                  Mutants: <span className="text-green-400">{player.mutation.killed}/{player.mutation.total}</span>
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="text-right">
+                            <div className="flex items-center justify-end gap-4">
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-cyan-400">{player.lineRate.toFixed(1)}%</div>
+                                <div className="text-xs text-slate-500">Coverage</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-purple-400">{player.mutation.score.toFixed(1)}%</div>
+                                <div className="text-xs text-slate-500">Mutation</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bebas text-xl text-foreground tracking-wider">
-                          {player.name}
-                          {/* {player.name === results.playerName && <span className="ml-2 text-primary text-sm">(YOU)</span>} */}
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Selected Player Details */}
+              <div className="space-y-6">
+                {selectedPlayer && getSelectedPlayer() && (
+                  <>
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-bold text-orange-300">
+                          {getSelectedPlayer()!.playerName}
                         </h3>
-                        <div className="flex gap-2 mt-1">
-                          {player.badges.slice(0, 3).map((badgeId) => {
-                            const badge = badges.find((b) => b.id === badgeId)
-                            if (!badge) return null
-                            const Icon = badge.icon
-                            return <Icon key={badgeId} className={`w-4 h-4 ${badge.color}`} />
-                          })}
+                        <div className="bg-gradient-to-r from-orange-900/30 to-yellow-900/30 px-3 py-1 rounded-full">
+                          <span className="text-yellow-400 font-bold">Rank #{getPlayerRank(selectedPlayer)}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-slate-400 text-sm mb-2">Total Score</p>
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 h-3 bg-slate-700 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-orange-500 to-yellow-500"
+                                style={{ width: `${(getSelectedPlayer()!.totalScore / maxScore) * 100}%` }}
+                              />
+                            </div>
+                            <span className={`text-2xl font-bold ${getScoreColor(getSelectedPlayer()!.totalScore, maxScore)}`}>
+                              {getSelectedPlayer()!.totalScore.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-slate-900/30 rounded-lg p-4">
+                            <p className="text-slate-400 text-sm mb-1">Coverage</p>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-gradient-to-r from-green-500 to-emerald-500"
+                                  style={{ width: `${getSelectedPlayer()!.lineRate}%` }}
+                                />
+                              </div>
+                              <span className="font-bold text-green-400">{getSelectedPlayer()!.lineRate.toFixed(1)}%</span>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-slate-900/30 rounded-lg p-4">
+                            <p className="text-slate-400 text-sm mb-1">Mutation</p>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+                                  style={{ width: `${getSelectedPlayer()!.mutation.score}%` }}
+                                />
+                              </div>
+                              <span className="font-bold text-purple-400">{getSelectedPlayer()!.mutation.score.toFixed(1)}%</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-bebas text-4xl text-foreground">{player.score}</div>
-                      <div className="text-xs text-muted-foreground">POINTS</div>
+
+                    {/* Badges Earned */}
+                    {getSelectedPlayer()!.badgesEarned.length > 0 && (
+                      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 p-6">
+                        <h3 className="text-xl font-bold text-orange-300 mb-4 flex items-center gap-2">
+                          <Award className="w-5 h-5" />
+                          Badges Earned
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {getSelectedPlayer()!.badgesEarned.map((badge: any, index: number) => (
+                            <span 
+                              key={index}
+                              className="px-3 py-1 bg-gradient-to-r from-orange-900/30 to-yellow-900/30 rounded-full text-sm border border-orange-500/30"
+                            >
+                              {badge.name || `Badge ${index + 1}`}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'comparison' && (
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 p-6">
+              <h2 className="text-xl font-bold text-orange-300 mb-6">Performance Comparison</h2>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-700/50">
+                      <th className="text-left p-4 text-slate-400 font-medium">Player</th>
+                      <th className="text-center p-4 text-slate-400 font-medium">Score</th>
+                      <th className="text-center p-4 text-slate-400 font-medium">Coverage</th>
+                      <th className="text-center p-4 text-slate-400 font-medium">Mutation</th>
+                      <th className="text-center p-4 text-slate-400 font-medium">Tests</th>
+                      <th className="text-center p-4 text-slate-400 font-medium">Time</th>
+                      <th className="text-center p-4 text-slate-400 font-medium">Badges</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {playersWithDetails.map((player) => (
+                      <tr key={player.playerId.$oid} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-orange-900/30 to-yellow-900/30">
+                              {getRankIcon(getPlayerRank(player.playerId.$oid))}
+                            </div>
+                            <div>
+                              <p className="font-bold">{player.playerName}</p>
+                              <p className="text-xs text-slate-500">
+                                {player.submission.stats ? `${player.submission.stats.passed}/${player.submission.stats.total} passed` : 'No tests'}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className="text-2xl font-bold text-orange-400">{player.totalScore.toFixed(2)}</span>
+                        </td>
+                        <td className="p-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-400">Lines</span>
+                              <span className="font-bold text-green-400">{player.lineRate.toFixed(1)}%</span>
+                            </div>
+                            <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-green-500 to-emerald-500"
+                                style={{ width: `${player.lineRate}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-400">Score</span>
+                              <span className="font-bold text-purple-400">{player.mutation.score.toFixed(1)}%</span>
+                            </div>
+                            <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+                                style={{ width: `${player.mutation.score}%` }}
+                              />
+                            </div>
+                            <div className="text-xs text-slate-500 text-center">
+                              {player.mutation.killed}/{player.mutation.total} killed
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-center gap-1">
+                              <CheckCircle className="w-4 h-4 text-green-400" />
+                              <span className="font-bold">{player.submission.stats?.passed || 0}</span>
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {player.testLines} lines
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="space-y-1">
+                            <span className="font-bold text-cyan-400">{player.executionTime.toFixed(2)}s</span>
+                            <div className={`text-xs ${player.executionTime < 5 ? 'text-green-400' : 'text-yellow-400'}`}>
+                              {player.executionTime < 5 ? '⚡ Fast' : 'Normal'}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="flex justify-center">
+                            <span className="px-2 py-1 bg-gradient-to-r from-orange-900/30 to-yellow-900/30 rounded text-sm">
+                              {player.badgesEarned.length}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'details' && selectedPlayer && getSelectedPlayer() && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Mutation Details */}
+              <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 p-6">
+                <h3 className="text-xl font-bold text-orange-300 mb-4 flex items-center gap-2">
+                  <Bug className="w-5 h-5" />
+                  Mutation Analysis
+                </h3>
+                
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="bg-slate-900/30 rounded-lg p-4">
+                    <p className="text-slate-400 text-sm mb-1">Mutation Score</p>
+                    <p className="text-2xl font-bold text-purple-400">
+                      {getSelectedPlayer()!.mutation.score.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="bg-slate-900/30 rounded-lg p-4">
+                    <p className="text-slate-400 text-sm mb-1">Killed</p>
+                    <p className="text-2xl font-bold text-green-400">
+                      {getSelectedPlayer()!.mutation.killed}
+                    </p>
+                  </div>
+                  <div className="bg-slate-900/30 rounded-lg p-4">
+                    <p className="text-slate-400 text-sm mb-1">Total Mutants</p>
+                    <p className="text-2xl font-bold text-orange-400">
+                      {getSelectedPlayer()!.mutation.total}
+                    </p>
+                  </div>
+                </div>
+                
+                {getSelectedPlayer()!.mutation.details && getSelectedPlayer()!.mutation.details.length > 0 && (
+                  <div>
+                    <p className="text-slate-400 text-sm mb-3">Mutation Status Distribution</p>
+                    <div className="space-y-3">
+                      {[
+                        { label: 'Killed', value: getSelectedPlayer()!.mutation.killed, color: 'bg-green-500' },
+                        { label: 'Survived', value: getSelectedPlayer()!.mutation.survived, color: 'bg-red-500' },
+                        { label: 'Timeout', value: getSelectedPlayer()!.mutation.timeout, color: 'bg-yellow-500' },
+                        { label: 'No Coverage', value: getSelectedPlayer()!.mutation.noCoverage, color: 'bg-slate-500' },
+                      ].map((item, index) => (
+                        item.value > 0 && (
+                          <div key={index} className="flex items-center gap-3">
+                            <span className="text-sm text-slate-400 w-24">{item.label}</span>
+                            <div className="flex-1 h-3 bg-slate-700 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full ${item.color}`}
+                                style={{ 
+                                  width: `${(item.value / getSelectedPlayer()!.mutation.total) * 100}%` 
+                                }}
+                              />
+                            </div>
+                            <span className="text-sm font-bold">{item.value}</span>
+                          </div>
+                        )
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
               </div>
-            </Card>{/* Score & Feedback */}
-<Card className="bg-card border-border p-8 mt-8">
-  <h2 className="font-bebas text-3xl text-foreground tracking-wider mb-6">COVERAGE & FEEDBACK</h2>
 
-  <div className="space-y-6">
-    {/* Coverage Metrics with progress bars */}
-    {[
-      { 
-        label: "Line Coverage", 
-       value: !isNaN(parseFloat(String(coverageReport?.lineRate))) 
-       ? parseFloat(String(coverageReport?.lineRate)) 
-       : "calculating...",
-        color: "bg-green-500", 
-        // desc: `${coverageReport?.coveredLines ?? 0} of ${coverageReport?.totalLines ?? 0} lines` 
-      },
-      { 
-        label: "Branch Coverage", 
-        value: typeof coverageReport?.branchRate === "number" ? coverageReport.branchRate : parseFloat(String(coverageReport?.branchRate ))||"calculating...",
-        color: "bg-blue-500", 
-        desc: "Percentage of branches covered by tests"
-      },
-      { 
-        label: "Test Lines", 
-        value: lineOfCode ??" calculating...",
-        color: "bg-amber-500", 
-        desc: "Number of meaningful test lines",
-        format: "number"
-      },
-      { 
-        label: "Execution Time", 
-        // value: (coverageReport?.executionTime || 0) * 1000, // Convert seconds -> ms
-        color: "bg-indigo-500", 
-        desc: "Time taken to execute all tests",
-        format: "time"
-      },
-      
-      { 
-  label: "Mutation Score", 
-  value: mutationResult?.summary?.mutationScore || "calculating...",
-  color: (mutationResult?.summary?.mutationScore || "calculating...") >= 80 ? "bg-green-500" : 
-         (mutationResult?.summary?.mutationScore || "calculating...") >= 60 ? "bg-amber-500" : "bg-red-500", 
-  desc: `${mutationResult?.summary?.killed || "calculating..."} of ${mutationResult?.summary?.totalMutants || 0} mutants killed`
-}
-    ].map((item:any , index) => (
-      <div key={index} className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h4 className="text-sm font-medium text-muted-foreground">{item.label}</h4>
-          <span className="text-foreground font-medium">
-            {item.format === "time" 
-              ? `${Math.round(item.value)}ms` 
-              : item.format === "number"
-                ? `${item.value}`
-                : `${(typeof item.value === "number" ? item.value : parseFloat(String(item.value ?? 0))).toFixed(1)}%`
-            }
-          </span>
-        </div>
-
-        {/* Only show progress bar for percentage metrics (no explicit format) */}
-        {!item.format && (
-          <div className="h-4 bg-secondary rounded-full overflow-hidden">
-            <div
-              className={`h-full ${item.color} rounded-full transition-all`}
-              style={{ width: `${Math.max(0, Math.min(100, Number(item.value) || 0))}%` }}
-            />
-          </div>
-        )}
-
-        <p className="text-xs text-muted-foreground">{item.desc}</p>
-      </div>
-    ))}
-    {/* Mutation Results Card */}
-<Card className="bg-card border-border p-8 mt-8">
-  <h2 className="font-bebas text-3xl text-foreground tracking-wider mb-6">MUTATION TESTING RESULTS</h2>
-  
-  {/* Mutation Score */}
-  <div className="space-y-2 mb-6">
-    <div className="flex items-center justify-between">
-      <h4 className="text-sm font-medium text-muted-foreground">Mutation Score</h4>
-      <span className="text-foreground font-medium">
-        {mutationResult?.summary?.mutationScore?.toFixed(1) || 0}%
-      </span>
-    </div>
-    <div className="h-4 bg-secondary rounded-full overflow-hidden">
-      <div
-        className={`h-full ${
-          (mutationResult?.summary?.mutationScore || 0) >= 80 ? 'bg-green-500' : 
-          (mutationResult?.summary?.mutationScore || 0) >= 60 ? 'bg-amber-500' : 'bg-red-500'
-        } rounded-full transition-all`}
-        style={{ width: `${Math.max(0, Math.min(100, mutationResult?.summary?.mutationScore || 0))}%` }}
-      />
-    </div>
-    <p className="text-xs text-muted-foreground">
-      {mutationResult?.summary?.killed || 0} of {mutationResult?.summary?.totalMutants || 0} mutants killed
-    </p>
-  </div>
-
-  {/* Mutation Breakdown */}
-  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-    {[
-      { label: "Total", value: mutationResult?.summary?.totalMutants || 0, color: "bg-gray-500" },
-      { label: "Killed", value: mutationResult?.summary?.killed || 0, color: "bg-green-500" },
-      { label: "Survived", value: mutationResult?.summary?.survived || 0, color: "bg-red-500" },
-      { label: "Timeout", value: mutationResult?.summary?.timeout || 0, color: "bg-amber-500" },
-      { label: "No Coverage", value: mutationResult?.summary?.noCoverage || 0, color: "bg-blue-500" }
-    ].map((item, index) => (
-      <div key={index} className="text-center p-3 rounded-lg bg-secondary/50">
-        <div className={`w-3 h-3 ${item.color} rounded-full mx-auto mb-2`}></div>
-        <div className="font-bebas text-2xl text-foreground">{item.value}</div>
-        <div className="text-xs text-muted-foreground uppercase tracking-wider">{item.label}</div>
-      </div>
-    ))}
-  </div>
-
-  {/* Mutants List */}
-  <div className="space-y-3">
-    <h4 className="font-bebas text-xl text-foreground tracking-wider">MUTANTS DETAILS</h4>
-    <div className="space-y-2 max-h-60 overflow-y-auto">
-      {mutationResult?.mutants?.map((mutant: any) => (
-        <div
-          key={mutant.id}
-          className={`p-3 rounded-lg border ${
-            mutant.status === 'Killed' ? 'bg-green-500/10 border-green-500/30' :
-            mutant.status === 'Survived' ? 'bg-red-500/10 border-red-500/30' :
-            mutant.status === 'Timeout' ? 'bg-amber-500/10 border-amber-500/30' :
-            'bg-blue-500/10 border-blue-500/30'
-          }`}
-        >
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className={`inline-block w-2 h-2 rounded-full ${
-                  mutant.status === 'Killed' ? 'bg-green-500' :
-                  mutant.status === 'Survived' ? 'bg-red-500' :
-                  mutant.status === 'Timeout' ? 'bg-amber-500' : 'bg-blue-500'
-                }`}></span>
-                <span className="font-medium text-foreground text-sm">{mutant.mutation}</span>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Line {mutant.line} • {mutant.fileName}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Original: <code className="bg-black/20 px-1 rounded">{mutant.originalCode}</code>
+              {/* Test & Coverage Details */}
+              <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 p-6">
+                <h3 className="text-xl font-bold text-orange-300 mb-4 flex items-center gap-2">
+                  <Code className="w-5 h-5" />
+                  Test & Coverage Details
+                </h3>
+                
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-slate-400 text-sm mb-3">Test Results</p>
+                    {getSelectedPlayer()!.submission.stats ? (
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-green-400">
+                            {/* {getSelectedPlayer()!.submission.stats.passed} */}
+                          </div>
+                          <div className="text-xs text-slate-500">Passed</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-red-400">
+                            {/* {getSelectedPlayer()!.submission.stats.failed} */}
+                          </div>
+                          <div className="text-xs text-slate-500">Failed</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-orange-400">
+                            {/* {getSelectedPlayer()!.submission.stats.total} */}
+                          </div>
+                          <div className="text-xs text-slate-500">Total</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-slate-500">No test results available</p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <p className="text-slate-400 text-sm mb-3">Coverage Breakdown</p>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-slate-400">Line Coverage</span>
+                          <span className="font-bold text-green-400">{getSelectedPlayer()!.lineRate.toFixed(1)}%</span>
+                        </div>
+                        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-green-500 to-emerald-500"
+                            style={{ width: `${getSelectedPlayer()!.lineRate}%` }}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-slate-400">Branch Coverage</span>
+                          <span className="font-bold text-blue-400">{getSelectedPlayer()!.branchCoverage.toFixed(1)}%</span>
+                        </div>
+                        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
+                            style={{ width: `${getSelectedPlayer()!.branchCoverage}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-900/30 rounded-lg p-4">
+                      <p className="text-slate-400 text-sm mb-1">Test Lines</p>
+                      <p className="text-2xl font-bold text-cyan-400">{getSelectedPlayer()!.testLines}</p>
+                    </div>
+                    <div className="bg-slate-900/30 rounded-lg p-4">
+                      <p className="text-slate-400 text-sm mb-1">Execution Time</p>
+                      <p className="text-2xl font-bold text-orange-400">{getSelectedPlayer()!.executionTime.toFixed(2)}s</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-            <span className={`text-xs px-2 py-1 rounded-full ${
-              mutant.status === 'Killed' ? 'bg-green-500/20 text-green-300' :
-              mutant.status === 'Survived' ? 'bg-red-500/20 text-red-300' :
-              mutant.status === 'Timeout' ? 'bg-amber-500/20 text-amber-300' :
-              'bg-blue-500/20 text-blue-300'
-            }`}>
-              {mutant.status}
-            </span>
-          </div>
+          )}
         </div>
-      ))}
-    </div>
-  </div>
-</Card>
 
-    {/* Feedback Section */}
-    <div className="mt-6 p-4 bg-secondary rounded-xl shadow-sm">
-      
-    </div>
-  </div>
-</Card>
-            {/* Badges Earned */}
-            <Card className="bg-card border-border p-8">
-              <h2 className="font-bebas text-3xl text-foreground tracking-wider mb-6">YOUR BADGES EARNED</h2>
-              {earnedBadges.length > 0 ? (
-                <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
-                  {earnedBadges.map((badgeId) => {
-                    const badge = badges.find((b) => b.id === badgeId)
-                    if (!badge) return null
-                    const Icon = badge.icon
-                    return (
-                      <div
-                        key={badgeId}
-                        className="flex flex-col items-center gap-3 p-6 bg-secondary rounded-lg border-2 border-primary"
-                      >
-                        <Icon className={`w-12 h-12 ${badge.color}`} />
-                        <span className="text-sm font-medium text-foreground text-center">{badge.name}</span>
-                        <span className="text-xs text-primary font-bebas tracking-wider">EARNED!</span>
-                      </div>
-                    )
-                  })}    
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No badges earned this round. Keep practicing!</p>
-                  <p className="text-sm text-muted-foreground mt-2">Score 70+ to start earning badges</p>
-                </div>
-              )}
-            </Card>
-      {/* Coverage Report Card */}
-<Card className="bg-card border-border p-8">
-  <h2 className="font-bebas text-3xl text-foreground tracking-wider mb-6">
-    COVERAGE REPORT
-  </h2>
-
-  <div className="space-y-6">
-  {/* Player's Written Tests */}
-  <div className="space-y-2">
-    <h3 className="text-sm font-medium text-foreground">Your Test Code</h3>
-    <div className="bg-background rounded-lg border border-border overflow-hidden">
-      <pre className="font-mono text-sm p-4 overflow-x-auto whitespace-pre-wrap">
-       { submissionData?.code }
-      </pre>
-    </div>
-  </div>
-
-
-    {/* Base Code with Line Highlighting */}
-    <div className="space-y-2">
-      <h3 className="text-sm font-medium text-foreground">Base Code Coverage</h3>
-      <div className="bg-background rounded-lg border border-border overflow-hidden">
-        <div className="font-mono text-sm">
-          {challengeData?.baseCode.split("\n").map((line: string, index: number) => {
-                      // Get coverage for BaseCode.cs only
-                      const lineNumber = index + 1;
-                      const coverage = coverageReport?.lineCoverage?.find(
-                        (c: { line: number; covered: boolean; file?: string }) => 
-                          // Make sure we're only showing coverage for base code lines
-                          c.line === lineNumber && 
-                          c?.file === "BaseCode.cs"  // Add this check
-                      );
-          
-                      return (
-                        <div
-                          key={index}
-                          className={`flex items-start py-1 px-3 hover:bg-secondary/50 transition-colors ${
-                            coverage !== undefined  // Only style if we have coverage data for this line
-                              ? coverage.covered
-                                ? "bg-green-500/5 border-l-4 border-l-green-500"
-                                : "bg-red-500/5 border-l-4 border-l-red-500"
-                              : ""
-                          }`}
-                        >
-                          <span className="text-muted-foreground select-none w-12 text-right pr-3 shrink-0">
-                            {lineNumber}
-                          </span>
-                          <code className={`flex-1 whitespace-pre ${
-                            coverage !== undefined
-                              ? coverage.covered
-                                ? "text-green-600"
-                                : "text-red-600"
-                              : "text-foreground"
-                          }`}>
-                            {line}
-                          </code>
-                        </div>
-                      );
-                    })}
+        {/* Footer Actions */}
+        <div className="mt-8 flex flex-wrap gap-4 justify-center">
+          <button
+            onClick={() => router.push('/')}
+            className="px-6 py-3 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 rounded-xl transition-all"
+          >
+            Back to Home
+          </button>
+          <button
+            onClick={loadGameResults}
+            className="px-6 py-3 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 rounded-xl transition-all flex items-center gap-2"
+          >
+            <Zap className="w-4 h-4" />
+            Refresh Results
+          </button>
         </div>
       </div>
-    </div>
-  </div>
-</Card>
-</div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center justify-center gap-4 py-8">
-            <Button
-              onClick={handlePlayAgain}
-              size="lg"
-              className="font-bebas text-xl tracking-wider px-8 py-6 bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              PLAY AGAIN
-            </Button>
-            <Button
-              onClick={handleViewProfile}
-              size="lg"
-              variant="outline"
-              className="font-bebas text-xl tracking-wider px-8 py-6 border-border text-foreground hover:bg-secondary bg-transparent"
-            >
-              VIEW PROFILE
-            </Button>
-            <Button
-              onClick={handleViewLeaderboard}
-              size="lg"
-              variant="outline"
-              className="font-bebas text-xl tracking-wider px-8 py-6 border-border text-foreground hover:bg-secondary bg-transparent"
-            >
-              LEADERBOARD
-            </Button>
-          </div>
-        </div>
       </div>
     </div>
-  )
+  );
 }

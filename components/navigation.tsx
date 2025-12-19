@@ -12,8 +12,8 @@ export function Navigation() {
 
   const links = [
     { href: "/", label: "Home", icon: Home },
-    { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
-    { href: "/profile", label: "Profile", icon: User },
+   // { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+   // { href: "/profile", label: "Profile", icon: User },
   ]
 
   // Don't show navigation during active game or auth pages
