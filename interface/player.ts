@@ -13,6 +13,6 @@ export interface Player {
   badges?: string[];
   joinedAt: string;
   lastActiveAt?: string;
-}
+};
 
 
