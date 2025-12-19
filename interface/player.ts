@@ -1,4 +1,4 @@
-interface Player {
+export interface Player {
   playerId:object;
   email: string;
   name: string;
@@ -15,4 +15,4 @@ interface Player {
   lastActiveAt?: string;
 }
 
-export default Player;
+

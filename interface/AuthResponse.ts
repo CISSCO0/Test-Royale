@@ -1,5 +1,5 @@
 
-import Player from './Player';
+import { Player } from './Player';
 export interface AuthResponse {
   success: boolean;
   message?: string;     
