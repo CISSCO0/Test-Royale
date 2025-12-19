@@ -1,6 +1,6 @@
 // API service layer for backend communication
 import { AuthResponse } from "@/interface/AuthResponse";
-import { Player } from "@/interface/Player";
+import { Player } from '@/interface/player';
 import { Cookie } from "next/font/google";
 import { LoginCredentials } from "@/interface/LoginCredentials";
 import { RegisterCredentials } from "@/interface/RegisterCredentials";
