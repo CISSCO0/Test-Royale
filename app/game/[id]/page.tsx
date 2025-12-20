@@ -504,7 +504,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
                 </span>
               </div>
               
-              <div className="editor-base h-[600px] max-h-[600px] min-h-[600px] rounded-xl overflow-hidden border-2 border-orange-500/30 shadow-xl bg-card">
+              <div className="editor-base h-[800px] max-h-[600px] min-h-[600px] rounded-xl overflow-hidden border-2 border-orange-500/30 shadow-xl bg-card">
                 <CodeEditorDisplay 
                   id="base"
                   value={challenge.baseCode} 
