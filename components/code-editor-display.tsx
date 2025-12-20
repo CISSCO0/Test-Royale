@@ -96,7 +96,7 @@ export function CodeEditorDisplay({
   // ✅ SCOPED CSS using editor id
   const highlightCSS = `
     .editor-${id} {
-      height: 91%;
+      height: 100%;
     }
 
     ${Array.from(highlightedLines)
