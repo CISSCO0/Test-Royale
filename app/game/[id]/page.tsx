@@ -29,6 +29,8 @@ export default function GamePage({ params }: { params: { id: string } }) {
   const [showDisclaimer, setShowDisclaimer] = useState(true);
   const [showTimerWarning, setShowTimerWarning] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);  // ✅ NEW
+  const [isHost, setIsHost] = useState(false);
+  const [hostId, setHostId] = useState<string | null>(null);
   
   const { player } = useAuth();
   const router = useRouter();
@@ -52,6 +54,17 @@ export default function GamePage({ params }: { params: { id: string } }) {
         }
         setChallenge(challengeData.challenge);
         
+        // Fetch room data to get hostId
+        try {
+          const roomResponse: any = await apiService.request(`/room/${gameData.game.roomCode}`);
+          if (roomResponse) {
+            setHostId(roomResponse.hostId);
+            setIsHost(roomResponse.hostId === player?.playerId);
+          }
+        } catch (err) {
+          console.warn('Could not fetch room data:', err);
+        }
+        
         const savedCode = sessionStorage.getItem(`game_${id}_playerTests`);
         
         if (savedCode) {
@@ -62,22 +75,17 @@ export default function GamePage({ params }: { params: { id: string } }) {
           sessionStorage.setItem(`game_${id}_playerTests`, challengeData.challenge.testTemplate || "");
         }
 
-        const gameStartTimeKey = `game_${id}_startTime`;
-        let startTime = sessionStorage.getItem(gameStartTimeKey);
-        
-        if (!startTime) {
-          startTime = Date.now().toString();
-          sessionStorage.setItem(gameStartTimeKey, startTime);
-        }
-
-        const elapsedSeconds = Math.floor((Date.now() - parseInt(startTime)) / 1000);
+        // ✅ Use game startedAt time instead of sessionStorage
+        const gameStartTime = new Date(gameData.game.startedAt).getTime();
+        const elapsedSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
         const totalDuration = challengeData.challenge.time;
         const remainingSeconds = Math.max(0, totalDuration - elapsedSeconds);
 
-        setTimerDuration(900);
+        setTimerDuration(remainingSeconds);
         
         if (remainingSeconds <= 0) {
-          setTimerDuration(900);
+          setTimerDuration(0);
+          // Timer already ended, will be handled by useEffect
         }
 
         setShowBattleAnimation(false);
@@ -113,6 +121,35 @@ export default function GamePage({ params }: { params: { id: string } }) {
       handleTimerEnd();
     }
   }, [timerDuration, game, player]);
+
+  // ✅ Handle host skip to results
+  const handleSkipToResults = async () => {
+    if (!isHost || gameEndedRef.current) return;
+    
+    try {
+      gameEndedRef.current = true;
+      setGameEnded(true);
+      setIsGeneratingReport(true);
+
+      console.log("🎯 Host skipping to results...");
+      const endGameResult: any = await apiService.endGame(game!._id);
+
+      if (!endGameResult.success) {
+        console.error("Failed to end game:", endGameResult.error);
+        setResultsError(endGameResult.error || 'Failed to end game');
+      } else {
+        console.log("✅ Game ended successfully by host");
+      }
+
+      router.push(`/results/${game!._id}`);
+
+    } catch (error: any) {
+      console.error("Error during skip to results:", error);
+      setResultsError(error.message || 'Failed to end game');
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
 
   // ✅ Handle timer completion - Auto-submit
   const handleTimerEnd = async () => {
@@ -334,6 +371,17 @@ export default function GamePage({ params }: { params: { id: string } }) {
                   </div>
                 )}
               </div>
+              
+              {/* Host Skip Button */}
+              {isHost && !gameEnded && timerDuration !== null && timerDuration > 0 && (
+                <button
+                  onClick={handleSkipToResults}
+                  className="px-6 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold transition-all flex items-center gap-2 border border-orange-400/30 shadow-lg hover:shadow-orange-500/50"
+                >
+                  <Zap className="w-5 h-5" />
+                  Skip to Results
+                </button>
+              )}
             </div>
           </div>
 
