@@ -37,10 +37,10 @@ class ApiService {
     
     // Get token and add to headers
     const token = this.getToken();
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string> || {}),
     };
     
     if (token) {
