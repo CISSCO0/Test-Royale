@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { Room } from '@/interface/Room';
+import Cookies from 'js-cookie';
 
 class SocketService {
   private socket: Socket | null = null;
@@ -14,7 +15,7 @@ class SocketService {
     return SocketService.instance;
   }
 
-  connect(token: string): Promise<void> {
+  connect(token?: string): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.socket?.connected) {
         this.socket.emit('reconnect_player');
@@ -22,8 +23,15 @@ class SocketService {
         return;
       }
 
+      // Get token from parameter or cookies
+      const authToken = token || Cookies.get('auth_token');
+      if (!authToken) {
+        reject(new Error('No authentication token available'));
+        return;
+      }
+
       this.socket = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
-        auth: { token },
+        auth: { token: authToken },
         transports: ['websocket'],
         path: '/socket.io',
         withCredentials: true,
