@@ -72,18 +72,29 @@ const loadGameResults = async () => {
     const playersWithNames = await Promise.all(
       sortedPlayers.map(async (playerData) => {
         try {
-          const playerInfo = await apiService.getPlayer(playerData.playerId);
-          console.log(`ℹ️ Player Info (${playerData.playerId}):`, playerInfo);
+          // Handle playerId as both object { $oid: "..." } and string
+          const playerId = typeof playerData.playerId === 'object' 
+            ? playerData.playerId.$oid || playerData.playerId 
+            : playerData.playerId;
+          
+          console.log(`ℹ️ Fetching player info for ID:`, playerId);
+          const playerInfo = await apiService.getPlayer(playerId);
+          console.log(`ℹ️ Player Info response:`, playerInfo);
           const player = playerInfo?.player || playerInfo;
           return {
             ...playerData,
-            playerName: player?.name || player?.username || `Player ${playerData.playerId.slice(-6)}`
+            playerId: playerId, // Normalize to string
+            playerName: player?.name || player?.username || `Player ${playerId.toString().slice(-6)}`
           };
         } catch (err) {
-          console.warn(`⚠️ Could not fetch player info for ${playerData.playerId}:`, err);
+          const playerId = typeof playerData.playerId === 'object' 
+            ? playerData.playerId.$oid || playerData.playerId 
+            : playerData.playerId;
+          console.warn(`⚠️ Could not fetch player info for ${playerId}:`, err);
           return {
             ...playerData,
-            playerName: `Player ${playerData.playerId.slice(-6)}`
+            playerId: playerId, // Normalize to string
+            playerName: `Player ${playerId.toString().slice(-6)}`
           };
         }
       })
@@ -164,6 +175,17 @@ const loadGameResults = async () => {
 
 
 
+  if (loading || authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-slate-400">Loading game results...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center">
@@ -181,8 +203,24 @@ const loadGameResults = async () => {
     );
   }
 
+  if (!playersWithDetails || playersWithDetails.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-slate-400 text-lg">No players found in this game</p>
+          <button
+            onClick={() => router.back()}
+            className="mt-4 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const winner = playersWithDetails[0];
-  const maxScore = Math.max(...playersWithDetails.map(p => p.totalScore));
+  const maxScore = Math.max(...playersWithDetails.map(p => p.totalScore || 0));
 
   return (
    <div className="flex items-center justify-center overflow-auto relative z-10 min-h-screen mt-16">
@@ -212,7 +250,7 @@ const loadGameResults = async () => {
               <Trophy className="w-8 h-8 text-yellow-500" />
               <div>
                 <p className="text-xs text-slate-400">Champion</p>
-                <p className="font-bold text-yellow-400">{winner.playerName}</p>
+                <p className="font-bold text-yellow-400">{winner.playerName || 'Unknown'}</p>
               </div>
             </div>
           )}
@@ -235,7 +273,7 @@ const loadGameResults = async () => {
               <Trophy className="w-5 h-5 text-yellow-500" />
               <div>
                 <p className="text-slate-400 text-sm">Top Score</p>
-                <p className="text-2xl font-bold text-yellow-400">{winner?.totalScore.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-yellow-400">{(winner?.totalScore || 0).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -246,7 +284,7 @@ const loadGameResults = async () => {
               <div>
                 <p className="text-slate-400 text-sm">Avg Score</p>
                 <p className="text-2xl font-bold">
-                  {(playersWithDetails.reduce((sum, p) => sum + p.totalScore, 0) / playersWithDetails.length).toFixed(2)}
+                  {(playersWithDetails.reduce((sum, p) => sum + (p.totalScore || 0), 0) / playersWithDetails.length).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -308,11 +346,11 @@ const loadGameResults = async () => {
                   <div className="divide-y divide-slate-700/50">
                     {playersWithDetails.map((player, index) => (
                       <div 
-                        key={player.playerId.$oid}
+                        key={player.playerId}
                         className={`p-4 hover:bg-slate-700/30 transition-all cursor-pointer ${
-                          selectedPlayer === player.playerId.$oid ? 'bg-slate-700/50' : ''
+                          selectedPlayer === player.playerId ? 'bg-slate-700/50' : ''
                         }`}
-                        onClick={() => setSelectedPlayer(player.playerId.$oid)}
+                        onClick={() => setSelectedPlayer(player.playerId)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
@@ -320,15 +358,15 @@ const loadGameResults = async () => {
                               {getRankIcon(index + 1)}
                             </div>
                             <div>
-                              <h3 className="font-bold text-lg">{player.playerName}</h3>
+                              <h3 className="font-bold text-lg">{player.playerName || 'Unknown Player'}</h3>
                               <div className="flex items-center gap-3 text-sm text-slate-400">
                                 <span className="flex items-center gap-1">
                                   <Target className="w-3 h-3" />
-                                  Score: <span className="text-orange-400 font-bold">{player.totalScore.toFixed(2)}</span>
+                                  Score: <span className="text-orange-400 font-bold">{(player.totalScore || 0).toFixed(2)}</span>
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <Bug className="w-3 h-3" />
-                                  Mutants: <span className="text-green-400">{player.mutation.killed}/{player.mutation.total}</span>
+                                  Mutants: <span className="text-green-400">{player.mutation?.killed || 0}/{player.mutation?.total || 0}</span>
                                 </span>
                               </div>
                             </div>
@@ -337,11 +375,11 @@ const loadGameResults = async () => {
                           <div className="text-right">
                             <div className="flex items-center justify-end gap-4">
                               <div className="text-center">
-                                <div className="text-lg font-bold text-cyan-400">{player.lineRate.toFixed(1)}%</div>
+                                <div className="text-lg font-bold text-cyan-400">{(player.lineRate || 0).toFixed(1)}%</div>
                                 <div className="text-xs text-slate-500">Coverage</div>
                               </div>
                               <div className="text-center">
-                                <div className="text-lg font-bold text-purple-400">{player.mutation.score.toFixed(1)}%</div>
+                                <div className="text-lg font-bold text-purple-400">{(player.mutation?.score || 0).toFixed(1)}%</div>
                                 <div className="text-xs text-slate-500">Mutation</div>
                               </div>
                             </div>
