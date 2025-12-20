@@ -74,9 +74,10 @@ const loadGameResults = async () => {
         try {
           const playerInfo = await apiService.getPlayer(playerData.playerId);
           console.log(`ℹ️ Player Info (${playerData.playerId}):`, playerInfo);
+          const player = playerInfo?.player || playerInfo;
           return {
             ...playerData,
-            playerName: playerInfo?.name || playerInfo?.username || `Player ${playerData.playerId.slice(-6)}`
+            playerName: player?.name || player?.username || `Player ${playerData.playerId.slice(-6)}`
           };
         } catch (err) {
           console.warn(`⚠️ Could not fetch player info for ${playerData.playerId}:`, err);
