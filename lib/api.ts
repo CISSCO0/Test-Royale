@@ -34,14 +34,22 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
+    
+    // Get token and add to headers
+    const token = this.getToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...options.headers,
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     const config: RequestInit = {
       credentials: 'include', // Important for cookies
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...options.headers,
-      },
+      headers,
       ...options,
     };
 
