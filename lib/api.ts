@@ -199,6 +199,11 @@ async verifyRegistration(email: string, code: string): Promise<AuthResponse> {
     return await this.request(`/game/${gameId}`, { method: "GET" });
   }
 
+  /** Get room by code */
+  async getRoom(roomCode: string): Promise<any> {
+    return await this.request(`/room/${roomCode}`, { method: "GET" });
+  }
+
   
   async getPlayer(id:any): Promise<any> {
     return await this.request(`/auth/getPlayer/${id}`, { method: "GET" });

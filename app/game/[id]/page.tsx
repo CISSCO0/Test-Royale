@@ -56,7 +56,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
         
         // Fetch room data to get hostId
         try {
-          const roomResponse: any = await apiService.request(`/room/${gameData.game.roomCode}`);
+          const roomResponse: any = await apiService.getRoom(gameData.game.roomCode);
           if (roomResponse) {
             setHostId(roomResponse.hostId);
             setIsHost(roomResponse.hostId === player?.playerId);
