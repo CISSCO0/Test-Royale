@@ -8,7 +8,9 @@ export interface AuthContextType {
   isAuthenticated: boolean;
 
   login: (credentials: LoginCredentials) => Promise<void>;
+  register: (credentials: RegisterCredentials) => Promise<AuthResponse>;
 
+  // Legacy email verification methods
   startRegistration: (credentials: RegisterCredentials) => Promise<AuthResponse>;
   verifyRegistration: (email: string, code: string) => Promise<AuthResponse>;
 

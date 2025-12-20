@@ -119,7 +119,33 @@ class ApiService {
     }
   }
 
- async startRegistration(credentials: RegisterCredentials): Promise<any> {
+  // Direct registration without email verification
+  async register(credentials: RegisterCredentials): Promise<AuthResponse> {
+    try {
+      const response = await this.request<AuthResponse>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+      });
+
+      // Set cookies if registration was successful
+      if (response.success) {
+        if (response.token) {
+          this.setToken(response.token);
+        }
+        if (response.player) {
+          this.setUserData(response.player);
+        }
+      }
+
+      return response;
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw error;
+    }
+  }
+
+  // Legacy email verification methods (kept for backward compatibility)
+  async startRegistration(credentials: RegisterCredentials): Promise<any> {
   try {
     const response = await this.request<any>('/auth/start-registration', {
       method: 'POST',

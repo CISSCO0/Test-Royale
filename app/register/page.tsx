@@ -13,7 +13,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { startRegistration, verifyRegistration } = useAuth();
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -21,14 +21,11 @@ export default function RegisterPage() {
     confirmPassword: "",
   });
 
-  const [verificationCode, setVerificationCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [showVerification, setShowVerification] = useState(false);
-  const [pendingEmail, setPendingEmail] = useState("");
 
   const validateForm = () => {
     if (formData.password !== formData.confirmPassword) {
@@ -46,7 +43,7 @@ export default function RegisterPage() {
     return true;
   };
 
-  const handleInitialRegistration = async (e: React.FormEvent) => {
+  const handleRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -57,35 +54,12 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      await startRegistration({
+      await register({
         name: formData.username,
         email: formData.email,
         password: formData.password,
       });
 
-      setPendingEmail(formData.email);
-      setShowVerification(true);
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleVerification = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    if (verificationCode.length !== 6) {
-      setError("Please enter a valid 6-digit code");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      await verifyRegistration(pendingEmail, verificationCode);
       setSuccess(true);
       const success = new Audio("/game_success_loading.mp3");
       success.play();
@@ -94,7 +68,7 @@ export default function RegisterPage() {
         router.push("/"); 
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Verification failed");
+      setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setIsLoading(false);
     }
@@ -106,11 +80,6 @@ export default function RegisterPage() {
       ...prev,
       [e.target.name]: e.target.value,
     }));
-  };
-
-  const handleVerificationCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-    setVerificationCode(value);
   };
 
   if (success) {
@@ -267,7 +236,7 @@ export default function RegisterPage() {
 
   return (
     <div>
-      {/* Main Content - Initial Registration */}
+      {/* Main Content - Registration Form */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-6">
@@ -297,7 +266,7 @@ export default function RegisterPage() {
 
           <Card className="relative bg-slate-900/95 backdrop-blur-md border border-orange-500/30 p-8 shadow-xl">
           <div className="absolute inset-0 rounded-lg bg-gradient-to-b from-orange-500/5 to-transparent pointer-events-none"/>     
-            <form onSubmit={handleInitialRegistration} className="space-y-6 relative z-10">
+            <form onSubmit={handleRegistration} className="space-y-6 relative z-10">
          {error && (
   <Alert style={{ 
     backgroundColor: 'var(--error-bg)',

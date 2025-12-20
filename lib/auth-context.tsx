@@ -58,7 +58,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
- const startRegistration = async (credentials: RegisterCredentials) => {
+  // Direct registration without email verification
+  const register = async (credentials: RegisterCredentials) => {
+    try {
+      const response = await apiService.register(credentials);
+      if (response.success && response.player) {
+        setUser(response.player);
+      } else {
+        throw new Error(response.error || 'Registration failed');
+      }
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  // Legacy email verification methods (kept for backward compatibility)
+  const startRegistration = async (credentials: RegisterCredentials) => {
   try {
     const response = await apiService.startRegistration(credentials);
     if (!response.success) {
@@ -97,6 +113,7 @@ const verifyRegistration = async (email: string, code: string) => {
     isLoading,
     isAuthenticated,
     login,
+    register,
     startRegistration,
     verifyRegistration,
     logout,
