@@ -71,25 +71,31 @@ const loadGameResults = async () => {
     setFetchingPlayerInfo(true);
     const playersWithNames = await Promise.all(
       sortedPlayers.map(async (playerData) => {
+        // Handle playerId as both object { $oid: "..." } and string
+        const playerId = typeof playerData.playerId === 'object' 
+          ? playerData.playerId.$oid || playerData.playerId 
+          : playerData.playerId;
+        
         try {
-          // Handle playerId as both object { $oid: "..." } and string
-          const playerId = typeof playerData.playerId === 'object' 
-            ? playerData.playerId.$oid || playerData.playerId 
-            : playerData.playerId;
-          
           console.log(`ℹ️ Fetching player info for ID:`, playerId);
-          const playerInfo = await apiService.getPlayer(playerId);
+          
+          // Add timeout to prevent hanging
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), 5000)
+          );
+          
+          const playerInfoPromise = apiService.getPlayer(playerId);
+          const playerInfo = await Promise.race([playerInfoPromise, timeoutPromise]);
+          
           console.log(`ℹ️ Player Info response:`, playerInfo);
           const player = playerInfo?.player || playerInfo;
+          
           return {
             ...playerData,
             playerId: playerId, // Normalize to string
             playerName: player?.name || player?.username || `Player ${playerId.toString().slice(-6)}`
           };
         } catch (err) {
-          const playerId = typeof playerData.playerId === 'object' 
-            ? playerData.playerId.$oid || playerData.playerId 
-            : playerData.playerId;
           console.warn(`⚠️ Could not fetch player info for ${playerId}:`, err);
           return {
             ...playerData,
@@ -105,9 +111,10 @@ const loadGameResults = async () => {
     setPlayersWithDetails(playersWithNames);
     setGameResults(results);
 
-    if (sortedPlayers.length > 0) {
-      console.log("🎯 Setting initial selected player:", sortedPlayers[0].playerId);
-      setSelectedPlayer(sortedPlayers[0].playerId);
+    if (playersWithNames.length > 0) {
+      const firstPlayerId = playersWithNames[0].playerId;
+      console.log("🎯 Setting initial selected player:", firstPlayerId);
+      setSelectedPlayer(firstPlayerId);
     }
 
   } catch (err:any) {
