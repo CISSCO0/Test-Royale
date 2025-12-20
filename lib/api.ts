@@ -21,7 +21,7 @@ class ApiService {
   private readonly USER_COOKIE = 'user_data';
   private readonly COOKIE_OPTIONS:any = {
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     expires: 7 
   };
 
