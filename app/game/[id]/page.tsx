@@ -54,15 +54,10 @@ export default function GamePage({ params }: { params: { id: string } }) {
         }
         setChallenge(challengeData.challenge);
         
-        // Fetch room data to get hostId
-        try {
-          const roomResponse: any = await apiService.getRoom(gameData.game.roomCode);
-          if (roomResponse) {
-            setHostId(roomResponse.hostId);
-            setIsHost(roomResponse.hostId === player?.playerId);
-          }
-        } catch (err) {
-          console.warn('Could not fetch room data:', err);
+        // Get hostId from game (room might be deleted after game ends)
+        if (gameData.game.hostId) {
+          setHostId(gameData.game.hostId);
+          setIsHost(gameData.game.hostId === player?.playerId);
         }
         
         const savedCode = sessionStorage.getItem(`game_${id}_playerTests`);

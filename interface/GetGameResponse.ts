@@ -3,6 +3,7 @@ import { PlayerInGame } from "./PlayerInGame";
 export interface Game {
   _id: string;
   roomCode: string;
+  hostId?: string;
   codeId: string;             // Reference to Code ID
   players: PlayerInGame[];
   gameState: 'waiting' | 'playing' | 'finished';
