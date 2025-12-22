@@ -54,8 +54,8 @@ const loadGameResults = async () => {
       throw new Error(results?.error || 'Failed to load game results');
     }
 
-    // Detect players field (handle possible API typos)
-    const playersData = results.playerDate || results.players || results.game?.players;
+    // Detect players field (handle possible API variations)
+    const playersData = results.playerData || results.playerDate || results.players || results.game?.players;
     console.log("👥 Players Data Found:", playersData);
 
     if (!playersData || !Array.isArray(playersData)) {
@@ -67,59 +67,24 @@ const loadGameResults = async () => {
     const sortedPlayers = [...playersData].sort((a, b) => b.totalScore - a.totalScore);
     console.log("🏆 Sorted Players by totalScore:", sortedPlayers);
 
-    // Fetch player info
-    setFetchingPlayerInfo(true);
-    const playersWithNames = await Promise.all(
-      sortedPlayers.map(async (playerData) => {
-        // Handle playerId as both object { $oid: "..." } and string
-        const playerId = typeof playerData.playerId === 'object' 
-          ? playerData.playerId.$oid || playerData.playerId 
-          : playerData.playerId;
-        
-        try {
-          console.log(`ℹ️ Fetching player info for ID:`, playerId);
-          
-          // Add timeout to prevent hanging
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Request timeout')), 5000)
-          );
-          
-          const playerInfoPromise = apiService.getPlayer(playerId);
-          const playerInfo = await Promise.race([playerInfoPromise, timeoutPromise]);
-          
-          console.log(`ℹ️ Player Info response:`, playerInfo);
-          console.log(`ℹ️ Player Info success:`, playerInfo?.success);
-          console.log(`ℹ️ Player object:`, playerInfo?.player);
-          console.log(`ℹ️ Player name:`, playerInfo?.player?.name);
-          
-          // Check if API call was successful
-          if (!playerInfo?.success || !playerInfo?.player) {
-            console.warn(`⚠️ API returned unsuccessful response for ${playerId}:`, playerInfo);
-            return {
-              ...playerData,
-              playerId: playerId,
-              playerName: `Player ${playerId.toString().slice(-6)}`
-            };
-          }
-          
-          const playerName = playerInfo.player.name || playerInfo.player.username || `Player ${playerId.toString().slice(-6)}`;
-          console.log(`✅ Resolved player name:`, playerName);
-          
-          return {
-            ...playerData,
-            playerId: playerId, // Normalize to string
-            playerName: playerName
-          };
-        } catch (err) {
-          console.warn(`⚠️ Could not fetch player info for ${playerId}:`, err);
-          return {
-            ...playerData,
-            playerId: playerId, // Normalize to string
-            playerName: `Player ${playerId.toString().slice(-6)}`
-          };
-        }
-      })
-    );
+    // Backend now populates player names, so we can use them directly
+    const playersWithNames = sortedPlayers.map((playerData) => {
+      // Handle playerId as both object { $oid: "..." } and string
+      const playerId = typeof playerData.playerId === 'object' 
+        ? playerData.playerId.$oid || playerData.playerId 
+        : playerData.playerId;
+      
+      // Use the playerName from backend, or fall back to generated name
+      const playerName = playerData.playerName || `Player ${playerId.toString().slice(-6)}`;
+      
+      console.log(`✅ Player ${playerId}: ${playerName}`);
+      
+      return {
+        ...playerData,
+        playerId: playerId, // Normalize to string
+        playerName: playerName
+      };
+    });
 
     console.log("✅ Players with Details:", playersWithNames);
 
