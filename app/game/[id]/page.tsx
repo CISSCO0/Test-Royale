@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { SparklerTimer } from "@/components/SparklerTimer";
 import { CodeEditorDisplay } from "@/components/code-editor-display";
 import { ResultsModal } from "@/components/ResultsModal";
-import { AlertCircle, Swords, Eye, X, AlertTriangle, CheckCircle, Timer, Play, Zap } from "lucide-react";
+import { AlertCircle, Swords, Eye, X, AlertTriangle, CheckCircle, Timer, Play, Zap, Download } from "lucide-react";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Game } from "@/interface/GetGameResponse";
@@ -288,6 +288,36 @@ export default function GamePage({ params }: { params: { id: string } }) {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    if (!playerData || !player || !challenge) return;
+
+    try {
+      setIsGeneratingReport(true);
+      
+      const pdfBlob = await apiService.generatePDFReport(
+        playerData,
+        player.name || 'Unknown Player',
+        challenge.title || 'Challenge'
+      );
+
+      // Create download link
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `test-report-${challenge.title}-${Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+    } catch (error: any) {
+      console.error('PDF generation error:', error);
+      setResultsError(error.message || 'Failed to generate PDF report');
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-2xl text-muted-foreground">
@@ -557,18 +587,45 @@ export default function GamePage({ params }: { params: { id: string } }) {
 
                   {/* ✅ View Report Button */}
                   {playerData && (
-                    <button
-                      onClick={handleOpenResults}
-                      className="flex items-center h-10 gap-2 px-4 rounded-lg border-2 border-blue-600
-                                 font-bold text-white text-sm tracking-wide
-                                 bg-gradient-to-r from-blue-500 to-blue-600
-                                 transition-all duration-200
-                                 hover:scale-105 hover:from-blue-600 hover:to-blue-700
-                                 shadow-lg hover:shadow-blue-500/50"
-                    >
-                      <Eye className="w-5 h-5" />
-                      <span>VIEW REPORT</span>
-                    </button>
+                    <>
+                      <button
+                        onClick={handleOpenResults}
+                        className="flex items-center h-10 gap-2 px-4 rounded-lg border-2 border-blue-600
+                                   font-bold text-white text-sm tracking-wide
+                                   bg-gradient-to-r from-blue-500 to-blue-600
+                                   transition-all duration-200
+                                   hover:scale-105 hover:from-blue-600 hover:to-blue-700
+                                   shadow-lg hover:shadow-blue-500/50"
+                      >
+                        <Eye className="w-5 h-5" />
+                        <span>VIEW REPORT</span>
+                      </button>
+
+                      {/* ✅ Download PDF Button */}
+                      <button
+                        onClick={handleDownloadPDF}
+                        disabled={isGeneratingReport}
+                        className="flex items-center h-10 gap-2 px-4 rounded-lg border-2 border-green-600
+                                   font-bold text-white text-sm tracking-wide
+                                   bg-gradient-to-r from-green-500 to-green-600
+                                   transition-all duration-200
+                                   hover:scale-105 hover:from-green-600 hover:to-green-700
+                                   shadow-lg hover:shadow-green-500/50
+                                   disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                      >
+                        {isGeneratingReport ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>GENERATING...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-5 h-5" />
+                            <span>DOWNLOAD PDF</span>
+                          </>
+                        )}
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

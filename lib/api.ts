@@ -290,6 +290,24 @@ async generateMutationReport(playerTestsDir: string, projectDir:string): Promise
   });
 }
 
+/** generate PDF report */
+async generatePDFReport(playerData: any, playerName: string, challengeName: string): Promise<Blob> {
+  const response = await fetch(`${this.baseURL}/code/generatePDFReport`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${this.getToken()}`,
+    },
+    body: JSON.stringify({ playerData, playerName, challengeName }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to generate PDF report");
+  }
+
+  return await response.blob();
+}
+
 async calculatePlayerData(playerId: object, gameId: string): Promise<any> {
   return await this.request("/game/calculate-player-data", {
     method: "POST",
