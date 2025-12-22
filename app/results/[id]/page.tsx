@@ -659,19 +659,19 @@ const loadGameResults = async () => {
                       <div className="grid grid-cols-3 gap-4">
                         <div className="text-center">
                           <div className="text-3xl font-bold text-green-400">
-                            {/* {getSelectedPlayer()!.submission.stats.passed} */}
+                            {getSelectedPlayer()!.submission.stats.passed}
                           </div>
                           <div className="text-xs text-slate-500">Passed</div>
                         </div>
                         <div className="text-center">
                           <div className="text-3xl font-bold text-red-400">
-                            {/* {getSelectedPlayer()!.submission.stats.failed} */}
+                            {getSelectedPlayer()!.submission.stats.failed}
                           </div>
                           <div className="text-xs text-slate-500">Failed</div>
                         </div>
                         <div className="text-center">
                           <div className="text-3xl font-bold text-orange-400">
-                            {/* {getSelectedPlayer()!.submission.stats.total} */}
+                            {getSelectedPlayer()!.submission.stats.total}
                           </div>
                           <div className="text-xs text-slate-500">Total</div>
                         </div>
