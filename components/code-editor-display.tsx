@@ -125,7 +125,21 @@ export function CodeEditorDisplay({
   `
 
   return (
-    <div className={`editor-${id} h-full bg-slate-950 w-full`}>
+    <div 
+      className={`editor-${id} h-full bg-slate-950 w-full`}
+      onCopy={(e) => {
+        if (!editable) {
+          e.preventDefault();
+          return false;
+        }
+      }}
+      onCut={(e) => {
+        if (!editable) {
+          e.preventDefault();
+          return false;
+        }
+      }}
+    >
       <style>{highlightCSS}</style>
       <CodeMirror
         value={value}
@@ -152,6 +166,7 @@ export function CodeEditorDisplay({
           height: '100%',
           width: '100%',
           fontFamily: 'JetBrains Mono, Fira Code, monospace',
+          userSelect: editable ? 'text' : 'none',
         }}
       />
     </div>
