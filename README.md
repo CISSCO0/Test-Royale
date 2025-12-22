@@ -306,18 +306,5 @@ npm run type-check
 - Check for null/undefined handling
 ```
 
-## 📄 License
-
-This project is part of Test Royale educational platform.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit pull requests.
-
-## 📞 Support
-
-For issues or questions, please open an issue on GitHub.
-
----
 
 **Built with ❤️ using Next.js 14 and TypeScript**
