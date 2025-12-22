@@ -29,8 +29,6 @@ export default function GamePage({ params }: { params: { id: string } }) {
   const [showDisclaimer, setShowDisclaimer] = useState(true);
   const [showTimerWarning, setShowTimerWarning] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);  // ✅ NEW
-  const [isHost, setIsHost] = useState(false);
-  const [hostId, setHostId] = useState<string | null>(null);
   
   const { player } = useAuth();
   const router = useRouter();
@@ -53,12 +51,6 @@ export default function GamePage({ params }: { params: { id: string } }) {
           throw new Error(challengeData.error || 'Failed to load challenge');
         }
         setChallenge(challengeData.challenge);
-        
-        // Get hostId from game (room might be deleted after game ends)
-        if (gameData.game.hostId) {
-          setHostId(gameData.game.hostId);
-          setIsHost(gameData.game.hostId === player?.playerId);
-        }
         
         const savedCode = sessionStorage.getItem(`game_${id}_playerTests`);
         
@@ -116,35 +108,6 @@ export default function GamePage({ params }: { params: { id: string } }) {
       handleTimerEnd();
     }
   }, [timerDuration, game, player]);
-
-  // ✅ Handle host skip to results
-  const handleSkipToResults = async () => {
-    if (!isHost || gameEndedRef.current) return;
-    
-    try {
-      gameEndedRef.current = true;
-      setGameEnded(true);
-      setIsGeneratingReport(true);
-
-      console.log("🎯 Host skipping to results...");
-      const endGameResult: any = await apiService.endGame(game!._id);
-
-      if (!endGameResult.success) {
-        console.error("Failed to end game:", endGameResult.error);
-        setResultsError(endGameResult.error || 'Failed to end game');
-      } else {
-        console.log("✅ Game ended successfully by host");
-      }
-
-      router.push(`/results/${game!._id}`);
-
-    } catch (error: any) {
-      console.error("Error during skip to results:", error);
-      setResultsError(error.message || 'Failed to end game');
-    } finally {
-      setIsGeneratingReport(false);
-    }
-  };
 
   // ✅ Handle timer completion - Auto-submit
   const handleTimerEnd = async () => {
@@ -384,7 +347,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
                   <div className="flex items-center gap-4">
                     <SparklerTimer
                       duration={timerDuration}
-                      onComplete={handleTimerEnd}  // ✅ UPDATED
+                      onComplete={handleTimerEnd}
                     />
                     <span className="font-bebas text-1xl text-orange-400/70 py-2 px-1">
                       / 15 min 
@@ -396,17 +359,6 @@ export default function GamePage({ params }: { params: { id: string } }) {
                   </div>
                 )}
               </div>
-              
-              {/* Host Skip Button */}
-              {isHost && !gameEnded && timerDuration !== null && timerDuration > 0 && (
-                <button
-                  onClick={handleSkipToResults}
-                  className="px-6 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold transition-all flex items-center gap-2 border border-orange-400/30 shadow-lg hover:shadow-orange-500/50"
-                >
-                  <Zap className="w-5 h-5" />
-                  Skip to Results
-                </button>
-              )}
             </div>
           </div>
 
@@ -548,86 +500,12 @@ export default function GamePage({ params }: { params: { id: string } }) {
             {/* Right Side - Your Tests */}
             <div className="space-y-4">
               <div className="flex items-center justify-between px-2">
-                <div className="flex items-center gap-4">
-                  <h3 className="font-bebas text-xl text-foreground tracking-wider bg-orange-500/10 px-4 py-2 rounded-lg border border-orange-500/20 whitespace-nowrap">
-                    YOUR TESTS
-                  </h3>
-                  {/* ✅ MERGED Button: Run & Submit */}
-                  <button
-                    onClick={handleRunAndSubmit}
-                    disabled={isRunning || isGeneratingReport}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-lg border-2 border-orange-600 
-                                font-bold text-white bg-gradient-to-r from-orange-500 to-orange-600 transition-all duration-200 
-                                ${isRunning || isGeneratingReport
-                                  ? 'scale-95 opacity-70 cursor-not-allowed shadow-inner' 
-                                  : 'hover:scale-105 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-orange-500/50'
-                                }`}
-                  >
-                    {isGeneratingReport ? (
-                      <>
-                        <Zap className="w-6 h-6 animate-spin" />
-                        <span className="font-bebas tracking-wider">GENERATING REPORT...</span>
-                      </>
-                    ) : isRunning ? (
-                      <>
-                        <svg className="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        </svg>
-                        <span className="font-bebas tracking-wider">EXECUTING...</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        </svg>
-                        <span className="font-bebas tracking-wider">RUN & SUBMIT</span>
-                      </>
-                    )}
-                  </button>
-
-                  {/* ✅ View Report Button */}
-                  {playerData && (
-                    <>
-                      <button
-                        onClick={handleOpenResults}
-                        className="flex items-center h-10 gap-2 px-4 rounded-lg border-2 border-blue-600
-                                   font-bold text-white text-sm tracking-wide
-                                   bg-gradient-to-r from-blue-500 to-blue-600
-                                   transition-all duration-200
-                                   hover:scale-105 hover:from-blue-600 hover:to-blue-700
-                                   shadow-lg hover:shadow-blue-500/50"
-                      >
-                        <Eye className="w-5 h-5" />
-                        <span>VIEW REPORT</span>
-                      </button>
-
-                      {/* ✅ Download PDF Button */}
-                      <button
-                        onClick={handleDownloadPDF}
-                        disabled={isGeneratingReport}
-                        className="flex items-center h-10 gap-2 px-4 rounded-lg border-2 border-green-600
-                                   font-bold text-white text-sm tracking-wide
-                                   bg-gradient-to-r from-green-500 to-green-600
-                                   transition-all duration-200
-                                   hover:scale-105 hover:from-green-600 hover:to-green-700
-                                   shadow-lg hover:shadow-green-500/50
-                                   disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                      >
-                        {isGeneratingReport ? (
-                          <>
-                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>GENERATING...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Download className="w-5 h-5" />
-                            <span>DOWNLOAD PDF</span>
-                          </>
-                        )}
-                      </button>
-                    </>
-                  )}
-                </div>
+                <h3 className="font-bebas text-xl text-foreground tracking-wider bg-orange-500/10 px-4 py-2 rounded-lg border border-orange-500/20 whitespace-nowrap">
+                  YOUR TESTS
+                </h3>
+                <span className="text-xs text-muted-foreground bg-card px-3 py-1 rounded-full border border-orange-500/10">
+                  Editable
+                </span>
               </div>
               
               <div className="h-[600px] max-h-[600px] min-h-[600px] rounded-xl overflow-hidden border-2 border-orange-500/50 shadow-xl bg-card">
@@ -646,24 +524,104 @@ export default function GamePage({ params }: { params: { id: string } }) {
           {/* Console Output */}
           <div className="mt-12 mb-12">
             <div className="bg-gradient-to-br from-card to-slate-900 rounded-2xl overflow-hidden border border-orange-500/20 shadow-2xl">
+              {/* Action Buttons Bar */}
               <div className="bg-slate-800/80 backdrop-blur-sm px-6 py-4 border-b border-orange-500/20 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500 shadow-sm"></div>
-                    <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-sm"></div>
-                    <div className="w-3 h-3 rounded-full bg-green-500 shadow-sm"></div>
-                  </div>
-                  <span className="text-orange-300 font-mono text-lg font-bold tracking-wide">CONSOLE OUTPUT</span>
-                  {output && (
-                    <div className="flex gap-2 items-center">
-                      <div className="h-2 w-2 rounded-full bg-orange-400 animate-pulse"></div>
-                      <span className="text-xs text-orange-400 font-mono bg-orange-500/10 px-2 py-1 rounded">LAST RUN</span>
-                    </div>
+                <div className="flex items-center gap-3">
+                  {/* ✅ MERGED Button: Run & Submit */}
+                  <button
+                    onClick={handleRunAndSubmit}
+                    disabled={isRunning || isGeneratingReport}
+                    className={`flex items-center gap-2 px-6 py-2 rounded-lg border-2 border-orange-600 
+                                font-bold text-white bg-gradient-to-r from-orange-500 to-orange-600 transition-all duration-200 
+                                ${isRunning || isGeneratingReport
+                                  ? 'scale-95 opacity-70 cursor-not-allowed shadow-inner' 
+                                  : 'hover:scale-105 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-orange-500/50'
+                                }`}
+                  >
+                    {isGeneratingReport ? (
+                      <>
+                        <Zap className="w-5 h-5 animate-spin" />
+                        <span className="font-bebas tracking-wider text-sm">GENERATING...</span>
+                      </>
+                    ) : isRunning ? (
+                      <>
+                        <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        </svg>
+                        <span className="font-bebas tracking-wider text-sm">EXECUTING...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        </svg>
+                        <span className="font-bebas tracking-wider text-sm">RUN & SUBMIT</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* ✅ View Report Button */}
+                  {playerData && (
+                    <>
+                      <button
+                        onClick={handleOpenResults}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-blue-600
+                                   font-bold text-white text-sm tracking-wide
+                                   bg-gradient-to-r from-blue-500 to-blue-600
+                                   transition-all duration-200
+                                   hover:scale-105 hover:from-blue-600 hover:to-blue-700
+                                   shadow-lg hover:shadow-blue-500/50"
+                      >
+                        <Eye className="w-5 h-5" />
+                        <span className="text-sm">VIEW REPORT</span>
+                      </button>
+
+                      {/* ✅ Download PDF Button */}
+                      <button
+                        onClick={handleDownloadPDF}
+                        disabled={isGeneratingReport}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-green-600
+                                   font-bold text-white text-sm tracking-wide
+                                   bg-gradient-to-r from-green-500 to-green-600
+                                   transition-all duration-200
+                                   hover:scale-105 hover:from-green-600 hover:to-green-700
+                                   shadow-lg hover:shadow-green-500/50
+                                   disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                      >
+                        {isGeneratingReport ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-sm">GENERATING...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-5 h-5" />
+                            <span className="text-sm">DOWNLOAD PDF</span>
+                          </>
+                        )}
+                      </button>
+                    </>
                   )}
                 </div>
                 <div className="text-sm text-orange-300 font-mono bg-orange-500/10 px-4 py-2 rounded-full border border-orange-500/20">
                   {output ? `${output.split('\n').length} LINES` : 'AWAITING EXECUTION'}
                 </div>
+              </div>
+
+              {/* Console Header */}
+              <div className="bg-slate-800/60 backdrop-blur-sm px-6 py-3 border-b border-orange-500/10 flex items-center justify-between">
+                <div className="flex gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500 shadow-sm"></div>
+                  <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-sm"></div>
+                  <div className="w-3 h-3 rounded-full bg-green-500 shadow-sm"></div>
+                </div>
+                <span className="text-orange-300 font-mono text-base font-bold tracking-wide">CONSOLE OUTPUT</span>
+                {output && (
+                  <div className="flex gap-2 items-center ml-auto">
+                    <div className="h-2 w-2 rounded-full bg-orange-400 animate-pulse"></div>
+                    <span className="text-xs text-orange-400 font-mono bg-orange-500/10 px-2 py-1 rounded">LAST RUN</span>
+                  </div>
+                )}
               </div>
 
               <div className="h-96 overflow-auto bg-slate-900/50 p-6 font-mono">
