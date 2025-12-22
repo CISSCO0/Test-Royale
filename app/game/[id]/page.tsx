@@ -109,30 +109,52 @@ export default function GamePage({ params }: { params: { id: string } }) {
     }
   }, [timerDuration, game, player]);
 
-  // ✅ Handle timer completion - Auto-submit
+  // ✅ Handle timer completion - Auto-submit code first, then navigate
   const handleTimerEnd = async () => {
     try {
       setGameEnded(true);
       setIsGeneratingReport(true);
 
-      // 1️⃣ End the game on backend
+      // 1️⃣ Submit code first (triggers calculatePlayerData on backend)
+      console.log("💾 Auto-submitting player code...");
+      if (game && player && challenge) {
+        try {
+          const submitResult: any = await apiService.submitTestCode(
+            game._id,
+            player.playerId,
+            playerTests
+          );
+
+          if (submitResult.success) {
+            console.log("✅ Code submitted successfully");
+            
+            // Trigger calculation to ensure data is ready
+            await apiService.calculatePlayerData(player.playerId, game._id);
+            console.log("✅ Player data calculated");
+          } else {
+            console.warn("⚠️ Submit failed, proceeding anyway:", submitResult.error);
+          }
+        } catch (submitError: any) {
+          console.warn("⚠️ Submit error, proceeding anyway:", submitError.message);
+        }
+      }
+
+      // 2️⃣ End the game on backend
       console.log("🔚 Ending game...");
       const endGameResult: any = await apiService.endGame(game!._id);
 
       if (!endGameResult.success) {
         console.error("Failed to end game:", endGameResult.error);
-        setResultsError(endGameResult.error || 'Failed to end game');
-      } else {
-        console.log("✅ Game ended successfully");
       }
 
-      // 2️⃣ Navigate to results page
+      // 3️⃣ Navigate to results page (data should be ready now)
       console.log("📊 Navigating to results page...");
       router.push(`/results/${game!._id}`);
 
     } catch (error: any) {
       console.error("Error during timer end:", error);
-      setResultsError(error.message || 'Failed to complete game');
+      // Navigate anyway to show results page (with retry logic)
+      router.push(`/results/${game!._id}`);
     } finally {
       setIsGeneratingReport(false);
     }

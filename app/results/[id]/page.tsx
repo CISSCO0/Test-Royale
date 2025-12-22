@@ -63,6 +63,27 @@ const loadGameResults = async () => {
       throw new Error('No valid player data found in game results');
     }
 
+    // ✅ Check if any player has incomplete data
+    const hasIncompleteData = playersData.some(p => 
+      !p.totalScore || p.totalScore === 0 || !p.lineRate || !p.mutation?.score
+    );
+
+    if (hasIncompleteData) {
+      console.warn("⚠️ Incomplete data detected, retrying in 3 seconds...");
+      // Wait 3 seconds and retry once
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      const retryResults = await apiService.getGameResults(gameId);
+      if (retryResults?.success) {
+        const retryPlayersData = retryResults.playerData || retryResults.players;
+        if (retryPlayersData) {
+          console.log("✅ Retry successful, using updated data");
+          return loadGameResults(); // Recursive call with fresh data
+        }
+      }
+      console.warn("⚠️ Retry didn't help, proceeding with available data");
+    }
+
     // Sort players
     const sortedPlayers = [...playersData].sort((a, b) => b.totalScore - a.totalScore);
     console.log("🏆 Sorted Players by totalScore:", sortedPlayers);
