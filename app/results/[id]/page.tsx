@@ -88,12 +88,27 @@ const loadGameResults = async () => {
           const playerInfo = await Promise.race([playerInfoPromise, timeoutPromise]);
           
           console.log(`ℹ️ Player Info response:`, playerInfo);
-          const player = playerInfo?.player || playerInfo;
+          console.log(`ℹ️ Player Info success:`, playerInfo?.success);
+          console.log(`ℹ️ Player object:`, playerInfo?.player);
+          console.log(`ℹ️ Player name:`, playerInfo?.player?.name);
+          
+          // Check if API call was successful
+          if (!playerInfo?.success || !playerInfo?.player) {
+            console.warn(`⚠️ API returned unsuccessful response for ${playerId}:`, playerInfo);
+            return {
+              ...playerData,
+              playerId: playerId,
+              playerName: `Player ${playerId.toString().slice(-6)}`
+            };
+          }
+          
+          const playerName = playerInfo.player.name || playerInfo.player.username || `Player ${playerId.toString().slice(-6)}`;
+          console.log(`✅ Resolved player name:`, playerName);
           
           return {
             ...playerData,
             playerId: playerId, // Normalize to string
-            playerName: player?.name || player?.username || `Player ${playerId.toString().slice(-6)}`
+            playerName: playerName
           };
         } catch (err) {
           console.warn(`⚠️ Could not fetch player info for ${playerId}:`, err);
