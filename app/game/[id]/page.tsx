@@ -609,7 +609,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
               </div>
 
               {/* Console Header */}
-              <div className="bg-slate-800/60 backdrop-blur-sm px-6 py-3 border-b border-orange-500/10 flex items-center justify-between">
+              <div className="bg-slate-800/60 backdrop-blur-sm px-6 py-3 border-b border-orange-500/10 flex items-center gap-4">
                 <div className="flex gap-2">
                   <div className="w-3 h-3 rounded-full bg-red-500 shadow-sm"></div>
                   <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-sm"></div>
@@ -617,7 +617,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
                 </div>
                 <span className="text-orange-300 font-mono text-base font-bold tracking-wide">CONSOLE OUTPUT</span>
                 {output && (
-                  <div className="flex gap-2 items-center ml-auto">
+                  <div className="flex gap-2 items-center">
                     <div className="h-2 w-2 rounded-full bg-orange-400 animate-pulse"></div>
                     <span className="text-xs text-orange-400 font-mono bg-orange-500/10 px-2 py-1 rounded">LAST RUN</span>
                   </div>
