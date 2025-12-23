@@ -224,7 +224,7 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     required
                     className="bg-input/50 text-foreground placeholder-muted-foreground 
-                    focus:ring-1 transition-all duration-200 pr-12"
+                    focus:ring-1 transition-all duration-200 pr-10"
                     style={{
                       borderColor: 'var(--border)',
                       ['--tw-ring-color' as any]: 'var(--ring)',
@@ -233,8 +233,8 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                   className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground
-                    hover:text-accent transition-colors duration-200"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-200"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -257,9 +257,7 @@ export default function RegisterPage() {
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     required
-                    className="bg-input/50 text-foreground
-                    placeholder-muted-foreground focus:border-primary focus:ring-2 
-                    focus:ring-primary/50 transition-all duration-300 pr-12"
+                    className="bg-input/50 text-foreground placeholder-muted-foreground focus:ring-1 transition-all duration-200 pr-10"
                     style={{
                       borderColor: 'var(--border)',
                       ['--tw-ring-color' as any]: 'var(--ring)',
@@ -268,14 +266,10 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground
-                    hover:text-accent transition-colors duration-200"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-200"
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                   >
-                    {showConfirmPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
+                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
